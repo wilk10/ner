@@ -12,6 +12,7 @@ class Data:
 
     def __init__(self):
         self.cwd = pathlib.Path.cwd()
+        self.bioconcepts = [bc for flag, bioconcepts in self.BIOCONCEPTS_BY_FLAG.items() for bc in bioconcepts]
 
     def get_target_dir(self, flag):
         assert flag in ['animal', 'plant']
@@ -41,3 +42,22 @@ class Data:
         with open(str(file_path), encoding='utf-8') as f:
             data = json.load(f)
         return data
+
+    def learn_training_entries(self):
+        entities_by_bioconcept = {bioconcept: [] for bioconcept in self.bioconcepts}
+        for flag in ['animal', 'plant']:
+            training_data = self.read_json(flag, 'training')
+            for item in training_data['result']:
+                if 'content' not in item['example'].keys():
+                    continue
+                text = item['example']['content']
+                annotations = item['results']['annotations']
+                for annotation in annotations:
+                    named_entity = f"{text[annotation['start']:annotation['end']]}"
+                    clean_named_entity = named_entity.lower().strip()
+                    bioconcept = annotation['tag'].upper().strip()
+                    if clean_named_entity not in entities_by_bioconcept[bioconcept]:
+                        if clean_named_entity == 'prevalence' and bioconcept == 'ANMETHOD':
+                            continue
+                        entities_by_bioconcept[bioconcept].append(clean_named_entity)
+        return entities_by_bioconcept

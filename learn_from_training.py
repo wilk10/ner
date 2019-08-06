@@ -7,29 +7,11 @@ init(convert=True)
 class SimpleLearning:
     def __init__(self):
         self.data = Data()
-        self.bioconcepts = [bc for flag, bioconcepts in Data.BIOCONCEPTS_BY_FLAG.items() for bc in bioconcepts]
-
-    def learn_training_entries(self):
-        entities_by_bioconcept = {bioconcept: [] for bioconcept in self.bioconcepts}
-        for flag in ['animal', 'plant']:
-            training_data = self.data.read_json(flag, 'training')
-            for item in training_data['result']:
-                if 'content' not in item['example'].keys():
-                    continue
-                text = item['example']['content']
-                annotations = item['results']['annotations']
-                for annotation in annotations:
-                    named_entity = f"{text[annotation['start']:annotation['end']]}"
-                    clean_named_entity = named_entity.lower().strip()
-                    bioconcept = annotation['tag'].upper().strip()
-                    if clean_named_entity not in entities_by_bioconcept[bioconcept]:
-                        entities_by_bioconcept[bioconcept].append(clean_named_entity)
-        return entities_by_bioconcept
+        self.entities_by_bioconcept = self.data.learn_training_entries()
 
     def fit_to_validation(self):
-        entities_by_bioconcept = self.learn_training_entries()
         output_json = {'result': []}
-        comparisons = []
+        results = []
         for flag in ['animal', 'plant']:
             validation_data = self.data.read_json(flag, 'validation')
             for item in validation_data['result']:
@@ -38,27 +20,27 @@ class SimpleLearning:
                 text = item['example']['content'].lower()
                 output_item = {'example': item['example'], 'results': {'annotations': [], 'classifications': []}}
                 for bioconcept in Data.BIOCONCEPTS_BY_FLAG[flag]:
-                    for entity in entities_by_bioconcept[bioconcept]:
+                    for entity in self.entities_by_bioconcept[bioconcept]:
                         start = text.find(entity)
                         if start != -1:
                             end = start + len(entity)
                             annotation = {'tag': bioconcept, 'start': start, 'end': end}
                             output_item['results']['annotations'].append(annotation)
-                comparison = {
+                result = {
                     'text': text,
-                    'real': item['results']['annotations'],
-                    'estimated': output_item['results']['annotations']}
-                comparisons.append(comparison)
+                    'true': item['results']['annotations'],
+                    'pred': output_item['results']['annotations']}
+                results.append(result)
                 output_json['result'].append(output_item)
-        return comparisons, output_json
+        return results, output_json
 
     def represent(self):
-        comparisons, _ = self.fit_to_validation()
-        for item in comparisons:
+        items, _ = self.fit_to_validation()
+        for item in items:
             text = item['text']
             output_text = item['text']
             print(f'{text}\n')
-            for annotation in item['estimated']:
+            for annotation in item['pred']:
                 print(f'{annotation}\n')
                 named_entity = f"{text[annotation['start']:annotation['end']]}"
                 print(f'{named_entity}\n')
