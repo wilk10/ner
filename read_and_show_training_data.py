@@ -1,59 +1,41 @@
-import os
-import json
-import pathlib
+from utils.data import Data
+from colorama import Fore, Style
 
 
-class TrainingData:
-    DATA_DIR_NAME = 'Challenge_9934213_data_v2'
-    DIR_NAME_BY_FLAG = {'animal': 'DATASET_AHAW_for_Challenge', 'plant': 'DATASET_PLH_for_Challenge'}
-    TEXT_FILE_CHUNK = 'trainingset_text'
-    JSON_FILE_CHUNK = 'trainingset_annotations'
-
+class DataToShow:
     def __init__(self):
-        self.cwd = pathlib.Path.cwd()
-
-    def get_target_dir(self, flag):
-        assert flag in ['animal', 'plant']
-        dir_name = self.DIR_NAME_BY_FLAG[flag]
-        return self.cwd / self.DATA_DIR_NAME / dir_name
-
-    @staticmethod
-    def get_file_path(target_dir, file_name_chunk):
-        files = os.listdir(str(target_dir))
-        target_files = [file for file in files if file_name_chunk in file]
-        assert len(target_files) == 1
-        target_file = target_files[0]
-        return target_dir / target_file
-
-    def read_text(self, flag):
-        target_dir = self.get_target_dir(flag)
-        file_path = self.get_file_path(target_dir, self.TEXT_FILE_CHUNK)
-        with open(str(file_path), "r") as f:
-            entries = [entry.rstrip() for entry in f]
-        return entries
-
-    def read_json(self, flag):
-        target_dir = self.get_target_dir(flag)
-        file_path = self.get_file_path(target_dir, self.JSON_FILE_CHUNK)
-        with open(str(file_path), encoding='utf-8') as f:
-            data = json.load(f)
-        return data
+        self.data = Data()
 
     def read_and_show(self):
+        count_by_bioconcept = {}
         for flag in ['plant', 'animal']:
             #entries = self.read_text(flag)
-            entries = self.read_json(flag)
+            entries = self.data.read_json(flag, 'training')
             for i, entry in enumerate(entries['result']):
                 if 'content' not in entry['example'].keys():
                     continue
                 text = entry['example']['content']
-                print(f'{i}: {text}')
+                output_text = text
                 annotations = entry['results']['annotations']
-                for annotation in annotations:
-                    named_entity = text[annotation['start']:annotation['end']]
-                    print(f'\n{named_entity} ({annotation["tag"]})')
-                print('\n ---------------------------------------------------------------------------- \n')
+                sorted_annotations = sorted(annotations, key=lambda a: a['start'])
+                already_marked = []
+                for annotation in sorted_annotations:
+                    named_entity = f"{text[annotation['start']:annotation['end']]}"
+                    tag = annotation['tag'].upper()
+                    if tag in count_by_bioconcept.keys():
+                        count_by_bioconcept[tag] += 1
+                    else:
+                        count_by_bioconcept[tag] = 1
+                    if named_entity.lower() not in already_marked:
+                        coloured_entity = f"{Fore.RED}{named_entity} {Fore.GREEN}({tag}){Style.RESET_ALL}"
+                    else:
+                        coloured_entity = f"{Fore.RED}{named_entity}{Style.RESET_ALL}"
+                    output_text = output_text.replace(named_entity, coloured_entity)
+                    already_marked.append(named_entity.lower())
+                print(f'{i}: {output_text}\n --------------------------------------')
+                input()
+        print(count_by_bioconcept)
 
 
 if __name__ == '__main__':
-    TrainingData().read_and_show()
+    DataToShow().read_and_show()
