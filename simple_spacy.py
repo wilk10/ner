@@ -10,6 +10,27 @@ class SimpleSpaCy:
         self.entities_by_bioconcept = self.data.learn_training_entries()
         self.nlp = spacy.load("en_core_web_sm")
 
+    @staticmethod
+    def check_valid_year(num):
+        has_4_digits = len(num) == 4
+        try:
+            int(num)
+        except ValueError:
+            is_int = False
+        else:
+            is_int = True
+        is_valid = num[:2] == '19' or num[:2] == '20'
+        return has_4_digits and is_int and is_valid
+
+    @staticmethod
+    def find_matches_and_make_annotations(entry, text, bioconcept):
+        matches = [match for match in re.finditer(entry, text)]
+        annotations = []
+        for match in matches:
+            annotation = {'tag': bioconcept, 'start': match.start(), 'end': match.end()}
+            annotations.append(annotation)
+        return annotations
+
     def fit_to_validation(self):
         output_json = {'result': []}
         results = []
@@ -22,13 +43,18 @@ class SimpleSpaCy:
                 output_item = {'example': item['example'], 'results': {'annotations': [], 'classifications': []}}
                 doc = self.nlp(text)
                 nouns = list(set([chunk.text for chunk in doc.noun_chunks]))
+                nums = [token.lemma_ for token in doc if token.pos_ == "NUM"]
                 for bioconcept in Data.BIOCONCEPTS_BY_FLAG[flag]:
                     for noun in nouns:
                         if noun in self.entities_by_bioconcept[bioconcept]:
-                            matches = [match for match in re.finditer(noun, text)]
-                            for match in matches:
-                                annotation = {'tag': bioconcept, 'start': match.start(), 'end': match.end()}
-                                output_item['results']['annotations'].append(annotation)
+                            annotations = self.find_matches_and_make_annotations(noun, text, bioconcept)
+                            output_item['results']['annotations'].extend(annotations)
+                    if bioconcept == 'YEAR' and nums:
+                        for num in nums:
+                            is_valid_year = self.check_valid_year(num)
+                            if is_valid_year:
+                                annotations = self.find_matches_and_make_annotations(num, text, bioconcept)
+                                output_item['results']['annotations'].extend(annotations)
                 result = {
                     'text': text,
                     'true': item['results']['annotations'],

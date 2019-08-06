@@ -56,7 +56,7 @@ class Data:
                     named_entity = f"{text[annotation['start']:annotation['end']]}"
                     clean_named_entity = named_entity.lower().strip()
                     bioconcept = annotation['tag'].upper().strip()
-                    if clean_named_entity not in entities_by_bioconcept[bioconcept]:
+                    if clean_named_entity not in entities_by_bioconcept[bioconcept] and clean_named_entity:
                         if clean_named_entity == 'prevalence' and bioconcept == 'ANMETHOD':
                             continue
                         entities_by_bioconcept[bioconcept].append(clean_named_entity)
