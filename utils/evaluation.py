@@ -40,7 +40,7 @@ class Evaluation:
                 for annotation in item[flag]:
                     bioconcept = annotation['tag'].upper().strip()
                     text = item['text']
-                    entity = f"{text[annotation['start']:annotation['end']]}"
+                    entity = f"{text[annotation['start']:annotation['end']]}".strip()
                     relevant_classifications = other_classifications[annotation['start']:annotation['end']]
                     undetected_entity = all([clas == 0 for clas in relevant_classifications])
                     if undetected_entity:
@@ -76,4 +76,6 @@ class Evaluation:
                 'recall': recall_score(y_true, y_pred)}
             metrics_by_bioconcept[bioconcept] = metrics
         df = pandas.DataFrame(metrics_by_bioconcept)
+        average_f1 = np.mean(df.T.f1) * 100
         print(df.T)
+        print(f'\naverage f1 score: {average_f1:.0f}%')

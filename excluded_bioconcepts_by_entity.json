@@ -1,0 +1,14 @@
+{
+    "prevalence": ["ANMETHOD"],
+    "x. fastidiosa": ["PLANT_DISEASE_COMMNAME"],
+    "oak": ["PLANT_DISEASE_COMMNAME"],
+    "ticks": ["PATHOGENIC_ORGANISMS"],
+    "tick": ["PATHOGENIC_ORGANISMS"],
+    "dirofilaria immitis": ["TARGET_SPECIES"],
+    "parasites": ["TARGET_SPECIES"],
+    "l. infantum": ["TARGET_SPECIES"],
+    "igm": ["PATHOGENIC_ORGANISMS"],
+    "sand flies": ["PREVALENCE"],
+    "bulgaria": ["PREVALENCE"],
+    "2003": ["PREVALENCE"]
+}

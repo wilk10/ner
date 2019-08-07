@@ -23,6 +23,10 @@ class SimpleSpaCy:
         return has_4_digits and is_int and is_valid
 
     @staticmethod
+    def check_prevalence(num):
+        return '/' in num or '.' in num
+
+    @staticmethod
     def find_matches_and_make_annotations(entry, text, bioconcept):
         matches = [match for match in re.finditer(entry, text)]
         annotations = []
@@ -49,12 +53,14 @@ class SimpleSpaCy:
                         if noun in self.entities_by_bioconcept[bioconcept]:
                             annotations = self.find_matches_and_make_annotations(noun, text, bioconcept)
                             output_item['results']['annotations'].extend(annotations)
-                    if bioconcept == 'YEAR' and nums:
-                        for num in nums:
-                            is_valid_year = self.check_valid_year(num)
-                            if is_valid_year:
-                                annotations = self.find_matches_and_make_annotations(num, text, bioconcept)
-                                output_item['results']['annotations'].extend(annotations)
+                    for num in nums:
+                        is_valid_year = self.check_valid_year(num)
+                        add_year = bioconcept == 'YEAR' and is_valid_year
+                        is_possible_prevalence = self.check_prevalence(num)
+                        add_prevalence = bioconcept == 'PREVALENCE' and is_possible_prevalence
+                        if add_year or add_prevalence:
+                            annotations = self.find_matches_and_make_annotations(num, text, bioconcept)
+                            output_item['results']['annotations'].extend(annotations)
                 result = {
                     'text': text,
                     'true': item['results']['annotations'],

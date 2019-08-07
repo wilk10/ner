@@ -9,10 +9,18 @@ class Data:
     BIOCONCEPTS_BY_FLAG = {
         'plant': ['PLANT_PEST', 'PLANT_SPECIES', 'PLANT_DISEASE_COMMNAME'],
         'animal': ['PATHOGENIC_ORGANISMS', 'TARGET_SPECIES', 'LOCATION', 'PREVALENCE', 'YEAR', 'ANMETHOD']}
+    HELP_DICT_NAME = 'excluded_bioconcepts_by_entity.json'
 
     def __init__(self):
         self.cwd = pathlib.Path.cwd()
         self.bioconcepts = [bc for flag, bioconcepts in self.BIOCONCEPTS_BY_FLAG.items() for bc in bioconcepts]
+        self.excluded_bioconcepts_by_entity = self.load_help_dict()
+
+    def load_help_dict(self):
+        file_path = self.cwd / self.HELP_DICT_NAME
+        with open(str(file_path)) as f:
+            data = json.load(f)
+        return data
 
     def get_target_dir(self, flag):
         assert flag in ['animal', 'plant']
@@ -31,7 +39,7 @@ class Data:
         assert phase in ['training', 'validation']
         target_dir = self.get_target_dir(flag)
         file_path = self.get_file_path(target_dir, f'{phase}set_text')
-        with open(str(file_path), "r") as f:
+        with open(str(file_path), 'r') as f:
             entries = [entry.rstrip() for entry in f]
         return entries
 
@@ -42,6 +50,18 @@ class Data:
         with open(str(file_path), encoding='utf-8') as f:
             data = json.load(f)
         return data
+
+    def clean_training_data(self, entities_by_bioconcept):
+        unique_entities_by_bioconcept = {
+            bioconcept: list(set(entities)) for bioconcept, entities in entities_by_bioconcept.items()}
+        clean_entities_by_bioconcept = {bioconcept: [] for bioconcept in self.bioconcepts}
+        for bioconcept, entities in unique_entities_by_bioconcept.items():
+            for entity in entities:
+                if entity not in self.excluded_bioconcepts_by_entity.keys():
+                    clean_entities_by_bioconcept[bioconcept].append(entity)
+                elif bioconcept not in self.excluded_bioconcepts_by_entity[entity]:
+                    clean_entities_by_bioconcept[bioconcept].append(entity)
+        return clean_entities_by_bioconcept
 
     def learn_training_entries(self):
         entities_by_bioconcept = {bioconcept: [] for bioconcept in self.bioconcepts}
@@ -56,8 +76,7 @@ class Data:
                     named_entity = f"{text[annotation['start']:annotation['end']]}"
                     clean_named_entity = named_entity.lower().strip()
                     bioconcept = annotation['tag'].upper().strip()
-                    if clean_named_entity not in entities_by_bioconcept[bioconcept] and clean_named_entity:
-                        if clean_named_entity == 'prevalence' and bioconcept == 'ANMETHOD':
-                            continue
+                    if clean_named_entity:
                         entities_by_bioconcept[bioconcept].append(clean_named_entity)
-        return entities_by_bioconcept
+        clean_entities_by_bioconcept = self.clean_training_data(entities_by_bioconcept)
+        return clean_entities_by_bioconcept
