@@ -327,10 +327,6 @@
     ],
     "PLANT_SPECIES": [
         [
-            "weeds",
-            "weeds"
-        ],
-        [
             "alfalfa",
             "Plantae"
         ],
@@ -545,10 +541,6 @@
         [
             "eugenia",
             "Plantae"
-        ],
-        [
-            "valencia",
-            "Animalia"
         ],
         [
             "nicotiana clevelandii",

@@ -10,5 +10,7 @@
     "igm": ["PATHOGENIC_ORGANISMS"],
     "sand flies": ["PREVALENCE"],
     "bulgaria": ["PREVALENCE"],
-    "2003": ["PREVALENCE"]
+    "2003": ["PREVALENCE"],
+    "weeds": ["PLANT_SPECIES"],
+    "valencia": ["PLANT_SPECIES"]
 }
