@@ -1,0 +1,668 @@
+{
+    "PLANT_PEST": [
+        [
+            "porthetria dispar",
+            "Animalia"
+        ],
+        [
+            "locust borer",
+            "Animalia"
+        ],
+        [
+            "platygastridae",
+            "Animalia"
+        ],
+        [
+            "pyrrhocoridae",
+            "Animalia"
+        ],
+        [
+            "rhizopus",
+            "Fungi"
+        ],
+        [
+            "xylella fastidiosa subsp. pauca",
+            "Bacteria"
+        ],
+        [
+            "xylella fastidiosa",
+            "Bacteria"
+        ],
+        [
+            "hemiptera",
+            "Animalia"
+        ],
+        [
+            "tomato black ring nepovirus",
+            "Viruses and viroids"
+        ],
+        [
+            "thyridopteryx ephemeraeformis",
+            "Animalia"
+        ],
+        [
+            "zeuzera coffeae",
+            "Animalia"
+        ],
+        [
+            "fusarium equiseti",
+            "Fungi"
+        ],
+        [
+            "fusarium poae",
+            "Fungi"
+        ],
+        [
+            "megacyllene robiniae",
+            "Animalia"
+        ],
+        [
+            "aphelenchus avenae",
+            "Animalia"
+        ],
+        [
+            "fusarium oxysporum",
+            "Fungi"
+        ],
+        [
+            "peanut stunt cucumovirus",
+            "Viruses and viroids"
+        ],
+        [
+            "botryosphaeria obtusa",
+            "Fungi"
+        ],
+        [
+            "bagrada cruciferarum",
+            "Animalia"
+        ],
+        [
+            "aeolesthes sarta",
+            "Animalia"
+        ],
+        [
+            "peronospora cytisi",
+            "Chromista"
+        ],
+        [
+            "fusarium sulphureum",
+            "Fungi"
+        ],
+        [
+            "tbrv",
+            "Viruses and viroids"
+        ],
+        [
+            "heteroptera",
+            "Animalia"
+        ],
+        [
+            "fusarium semitectum",
+            "Fungi"
+        ],
+        [
+            "alternaria alternata",
+            "Fungi"
+        ],
+        [
+            "obolodiplosis robiniae",
+            "Animalia"
+        ],
+        [
+            "fusarium lateritium",
+            "Fungi"
+        ],
+        [
+            "xenochalepus dorsalis",
+            "Animalia"
+        ],
+        [
+            "nectria cinnabarina",
+            "Fungi"
+        ],
+        [
+            "parectopa robiniella",
+            "Animalia"
+        ],
+        [
+            "tubercularia vulgaris",
+            "Fungi"
+        ],
+        [
+            "phyllonorycter robiniella",
+            "Animalia"
+        ],
+        [
+            "aphis craccivora",
+            "Animalia"
+        ],
+        [
+            "eumeta variegata",
+            "Animalia"
+        ],
+        [
+            "pentatomidae",
+            "Animalia"
+        ],
+        [
+            "fusarium sambucinum",
+            "Fungi"
+        ],
+        [
+            "olpidium brassicae",
+            "Fungi"
+        ],
+        [
+            "lepidoptera",
+            "Animalia"
+        ],
+        [
+            "odontota dorsalis",
+            "Animalia"
+        ],
+        [
+            "phellinus punctatus",
+            "Fungi"
+        ],
+        [
+            "diptera",
+            "Animalia"
+        ],
+        [
+            "fusarium sp.",
+            "Fungi"
+        ],
+        [
+            "penicillium chrysogenum",
+            "Fungi"
+        ],
+        [
+            "hymenoptera",
+            "Animalia"
+        ],
+        [
+            "gibberella baccata",
+            "Fungi"
+        ],
+        [
+            "nigrospora sphaerica",
+            "Fungi"
+        ],
+        [
+            "brsv",
+            "Viruses and viroids"
+        ],
+        [
+            "parectopa",
+            "Animalia"
+        ],
+        [
+            "cryptothelea variegata",
+            "Animalia"
+        ],
+        [
+            "cecidomyiidae",
+            "Animalia"
+        ],
+        [
+            "pest",
+            "Bacteria"
+        ],
+        [
+            "eulophidae",
+            "Animalia"
+        ],
+        [
+            "etiella zinckenella",
+            "Animalia"
+        ],
+        [
+            "armillaria mellea",
+            "Fungi"
+        ],
+        [
+            "parthenolecanium corni",
+            "Animalia"
+        ],
+        [
+            "aphididae",
+            "Animalia"
+        ],
+        [
+            "fusarium solani",
+            "Fungi"
+        ],
+        [
+            "pyrrhocoris apterus",
+            "Animalia"
+        ],
+        [
+            "cowpea aphid",
+            "Animalia"
+        ],
+        [
+            "lymantria dispar",
+            "Animalia"
+        ],
+        [
+            "ectomyelois ceratoniae",
+            "Animalia"
+        ],
+        [
+            "ulocladium consortiale",
+            "Fungi"
+        ],
+        [
+            "lyctus cavicollis",
+            "Animalia"
+        ],
+        [
+            "verticillium sp.",
+            "Fungi"
+        ],
+        [
+            "bitylenchus dubius",
+            "Animalia"
+        ],
+        [
+            "andricus quercuscalicis",
+            "Animalia"
+        ],
+        [
+            "tomato black ring virus",
+            "Viruses and viroids"
+        ],
+        [
+            "xanthomonas",
+            "Bacteria"
+        ],
+        [
+            "beet ringspot virus",
+            "Viruses and viroids"
+        ],
+        [
+            "xylella fastidiosa subsp. fastidiosa",
+            "Bacteria"
+        ],
+        [
+            "stachybotrys atra",
+            "Fungi"
+        ],
+        [
+            "fusarium avenaceum",
+            "Fungi"
+        ],
+        [
+            "fusarium",
+            "Fungi"
+        ],
+        [
+            "pinnaspis aspidistrae",
+            "Animalia"
+        ],
+        [
+            "gypsy moth",
+            "Animalia"
+        ],
+        [
+            "nezara viridula",
+            "Animalia"
+        ],
+        [
+            "peanut stunt virus",
+            "Viruses and viroids"
+        ],
+        [
+            "psv",
+            "Viruses and viroids"
+        ],
+        [
+            "phomopsis sp.",
+            "Fungi"
+        ],
+        [
+            "metcalfa pruinosa",
+            "Animalia"
+        ]
+    ],
+    "PLANT_SPECIES": [
+        [
+            "weeds",
+            "weeds"
+        ],
+        [
+            "alfalfa",
+            "Plantae"
+        ],
+        [
+            "sweet orange",
+            "Plantae"
+        ],
+        [
+            "vitis vinifera",
+            "Plantae"
+        ],
+        [
+            "robinia pseudoacacia",
+            "Plantae"
+        ],
+        [
+            "sycamore",
+            "Plantae"
+        ],
+        [
+            "rosemary",
+            "Plantae"
+        ],
+        [
+            "artemisia",
+            "Plantae"
+        ],
+        [
+            "california mugwort",
+            "Plantae"
+        ],
+        [
+            "lonicera",
+            "Plantae"
+        ],
+        [
+            "pera",
+            "Plantae"
+        ],
+        [
+            "citrus sinensis",
+            "Plantae"
+        ],
+        [
+            "ladino clover",
+            "Plantae"
+        ],
+        [
+            "sweetgum",
+            "Plantae"
+        ],
+        [
+            "oenothera",
+            "Plantae"
+        ],
+        [
+            "periwinkle",
+            "Plantae"
+        ],
+        [
+            "almond",
+            "Plantae"
+        ],
+        [
+            "rubus discolor",
+            "Plantae"
+        ],
+        [
+            "bermuda grass",
+            "Plantae"
+        ],
+        [
+            "crimson clover",
+            "Plantae"
+        ],
+        [
+            "godetia",
+            "Plantae"
+        ],
+        [
+            "johnson grass",
+            "Plantae"
+        ],
+        [
+            "boston ivy",
+            "Plantae"
+        ],
+        [
+            "plum",
+            "Plantae"
+        ],
+        [
+            "olive",
+            "Plantae"
+        ],
+        [
+            "vitis",
+            "Plantae"
+        ],
+        [
+            "dallis grass",
+            "Plantae"
+        ],
+        [
+            "oleander",
+            "Plantae"
+        ],
+        [
+            "barbera",
+            "Plantae"
+        ],
+        [
+            "sugar maple",
+            "Plantae"
+        ],
+        [
+            "watergrass",
+            "Plantae"
+        ],
+        [
+            "sambucus",
+            "Plantae"
+        ],
+        [
+            "blueberry",
+            "Plantae"
+        ],
+        [
+            "peach",
+            "Plantae"
+        ],
+        [
+            "red mulberry",
+            "Plantae"
+        ],
+        [
+            "black locust",
+            "Plantae"
+        ],
+        [
+            "bur oak",
+            "Plantae"
+        ],
+        [
+            "himalayan blackberry",
+            "Plantae"
+        ],
+        [
+            "baccharis",
+            "Plantae"
+        ],
+        [
+            "mugwort",
+            "Plantae"
+        ],
+        [
+            "quercus palustris",
+            "Plantae"
+        ],
+        [
+            "carrot",
+            "Plantae"
+        ],
+        [
+            "toyon",
+            "Plantae"
+        ],
+        [
+            "pecan",
+            "Plantae"
+        ],
+        [
+            "nicotiana tabacum",
+            "Plantae"
+        ],
+        [
+            "prunus armeniaca",
+            "Plantae"
+        ],
+        [
+            "acer macrophyllum",
+            "Plantae"
+        ],
+        [
+            "cynodon dactylon",
+            "Plantae"
+        ],
+        [
+            "blackberry",
+            "Plantae"
+        ],
+        [
+            "alsike clover",
+            "Plantae"
+        ],
+        [
+            "catharanthus roseus",
+            "Plantae"
+        ],
+        [
+            "robinia",
+            "Plantae"
+        ],
+        [
+            "robinia pseudacacia",
+            "Plantae"
+        ],
+        [
+            "artemisia douglasiana",
+            "Plantae"
+        ],
+        [
+            "eugenia",
+            "Plantae"
+        ],
+        [
+            "valencia",
+            "Animalia"
+        ],
+        [
+            "nicotiana clevelandii",
+            "Plantae"
+        ],
+        [
+            "mandarin",
+            "Plantae"
+        ],
+        [
+            "ulmus americana",
+            "Plantae"
+        ],
+        [
+            "quercus rubra",
+            "Plantae"
+        ],
+        [
+            "beech",
+            "Plantae"
+        ],
+        [
+            "canna",
+            "Plantae"
+        ],
+        [
+            "avocado",
+            "Plantae"
+        ],
+        [
+            "pear",
+            "Plantae"
+        ],
+        [
+            "coprosma",
+            "Plantae"
+        ],
+        [
+            "acacia",
+            "Plantae"
+        ],
+        [
+            "fuchsia",
+            "Plantae"
+        ],
+        [
+            "symphoricarpos",
+            "Plantae"
+        ],
+        [
+            "hedera",
+            "Plantae"
+        ],
+        [
+            "platanus occidentalis",
+            "Plantae"
+        ],
+        [
+            "timothy",
+            "Plantae"
+        ],
+        [
+            "grapevine",
+            "Plantae"
+        ],
+        [
+            "citrus",
+            "Plantae"
+        ],
+        [
+            "chitalpa",
+            "Plantae"
+        ],
+        [
+            "red clover",
+            "Plantae"
+        ],
+        [
+            "black oak",
+            "Plantae"
+        ],
+        [
+            "hubam clover",
+            "Plantae"
+        ],
+        [
+            "locust",
+            "Plantae"
+        ]
+    ],
+    "PLANT_DISEASE_COMMNAME": [
+        [
+            "white rot",
+            "Fungi"
+        ],
+        [
+            "phytoplasma",
+            "Bacteria"
+        ],
+        [
+            "oleander leaf scorch",
+            "Bacteria"
+        ],
+        [
+            "wilt",
+            "Fungi"
+        ],
+        [
+            "bls",
+            "Bacteria"
+        ],
+        [
+            "downy mildew",
+            "Chromista"
+        ]
+    ]
+}
