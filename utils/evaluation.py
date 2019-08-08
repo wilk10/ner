@@ -78,4 +78,4 @@ class Evaluation:
         df = pandas.DataFrame(metrics_by_bioconcept)
         average_f1 = np.mean(df.T.f1) * 100
         print(df.T)
-        print(f'\naverage f1 score: {average_f1:.0f}%')
+        print(f'average f1 score: {average_f1:.0f}%')

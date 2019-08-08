@@ -12,5 +12,7 @@
     "bulgaria": ["PREVALENCE"],
     "2003": ["PREVALENCE"],
     "weeds": ["PLANT_SPECIES"],
-    "valencia": ["PLANT_SPECIES"]
+    "valencia": ["PLANT_SPECIES"],
+    "vectors": ["TARGET_SPECIES"],
+    "rhipicephalus sanguineus sensu lato": ["TARGET_SPECIES"]
 }

@@ -9,15 +9,17 @@ class Data:
     BIOCONCEPTS_BY_KINGDOM = {
         'plant': ['PLANT_PEST', 'PLANT_SPECIES', 'PLANT_DISEASE_COMMNAME'],
         'animal': ['PATHOGENIC_ORGANISMS', 'TARGET_SPECIES', 'LOCATION', 'PREVALENCE', 'YEAR', 'ANMETHOD']}
+    DICTIONARIES_DIR_NAME = 'dictionaries'
     HELP_DICT_NAME = 'excluded_bioconcepts_by_entity.json'
 
     def __init__(self):
         self.cwd = pathlib.Path.cwd()
+        self.dict_dir = self.cwd / self.DICTIONARIES_DIR_NAME
         self.bioconcepts = [bc for kingdom, bioconcepts in self.BIOCONCEPTS_BY_KINGDOM.items() for bc in bioconcepts]
         self.excluded_bioconcepts_by_entity = self.load_help_dict()
 
     def load_help_dict(self):
-        file_path = self.cwd / self.HELP_DICT_NAME
+        file_path = self.dict_dir / self.HELP_DICT_NAME
         with open(str(file_path)) as f:
             data = json.load(f)
         return data

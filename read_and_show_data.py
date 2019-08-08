@@ -1,22 +1,33 @@
+import json
 from utils.data import Data
 from colorama import Fore, Style
 
 
 class DataToShow:
-    def __init__(self):
+    def __init__(self, file_type):
+        self.file_type = file_type
+        assert self.file_type in ['training', 'validation', 'predictions']
         self.data = Data()
+        self.predictions_path = self.data.dict_dir / 'predictions.json'
+
+    def load_predictions(self):
+        with open(str(self.predictions_path), encoding='utf-8') as f:
+            data = json.load(f)
+        return data
 
     def read_and_show(self):
         count_by_bioconcept = {}
         for kingdom in ['plant', 'animal']:
-            #entries = self.read_text(kingdom)
-            entries = self.data.read_json(kingdom, 'training')
-            for i, entry in enumerate(entries['result']):
-                if 'content' not in entry['example'].keys():
+            if self.file_type in ['training', 'validation']:
+                items = self.data.read_json(kingdom, self.file_type)
+            else:
+                items = self.load_predictions()
+            for i, item in enumerate(items['result']):
+                if 'content' not in item['example'].keys():
                     continue
-                text = entry['example']['content']
+                text = item['example']['content']
                 output_text = text
-                annotations = entry['results']['annotations']
+                annotations = item['results']['annotations']
                 sorted_annotations = sorted(annotations, key=lambda a: a['start'])
                 already_marked = []
                 for annotation in sorted_annotations:
@@ -38,4 +49,5 @@ class DataToShow:
 
 
 if __name__ == '__main__':
-    DataToShow().read_and_show()
+    data_to_show = DataToShow('predictions')
+    data_to_show.read_and_show()

@@ -1,7 +1,6 @@
 import os
 import json
 import time
-import pathlib
 import requests
 import urllib.parse
 from utils.data import Data
@@ -15,8 +14,7 @@ class Eppo:
         self.time_to_sleep = time_to_sleep
         self.token = os.getenv('EPPO_TOKEN', '')
         self.data = Data()
-        self.cwd = pathlib.Path.cwd()
-        self.entity_taxonomies_by_bioconcept_path = self.cwd / self.OUTPUT_FILE_NAME
+        self.entity_taxonomies_by_bioconcept_path = self.data.dict_dir / self.OUTPUT_FILE_NAME
 
     @staticmethod
     def try_except(response, input_value):
@@ -84,7 +82,7 @@ class Eppo:
 
     def save_taxonomy_data_to_json(self):
         entities_by_bioconcept = self.data.learn_training_entries()
-        level1_taxonomy_by_bioconcept = {bioconcept: [] for bioconcept in Data.BIOCONCEPTS_BY_FLAG['plant']}
+        level1_taxonomy_by_bioconcept = {bioconcept: [] for bioconcept in Data.BIOCONCEPTS_BY_KINGDOM['plant']}
         for bioconcept, entities in entities_by_bioconcept.items():
             if bioconcept in level1_taxonomy_by_bioconcept.keys():
                 print(f'working on {bioconcept}')
