@@ -38,8 +38,8 @@ class SimpleSpaCy:
     def fit_to_validation(self):
         output_json = {'result': []}
         results = []
-        for flag in ['animal', 'plant']:
-            validation_data = self.data.read_json(flag, 'validation')
+        for kingdom in ['animal', 'plant']:
+            validation_data = self.data.read_json(kingdom, 'validation')
             for item in validation_data['result']:
                 if 'content' not in item['example'].keys():
                     continue
@@ -48,7 +48,7 @@ class SimpleSpaCy:
                 doc = self.nlp(text)
                 nouns = list(set([chunk.text for chunk in doc.noun_chunks]))
                 nums = [token.lemma_ for token in doc if token.pos_ == "NUM"]
-                for bioconcept in Data.BIOCONCEPTS_BY_FLAG[flag]:
+                for bioconcept in Data.BIOCONCEPTS_BY_KINGDOM[kingdom]:
                     for noun in nouns:
                         if noun in self.entities_by_bioconcept[bioconcept]:
                             annotations = self.find_matches_and_make_annotations(noun, text, bioconcept)

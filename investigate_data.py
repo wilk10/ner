@@ -5,11 +5,12 @@ from colorama import Fore, Style
 class DataToInvestigate:
     def __init__(self, bioconcept):
         self.bioconcept = bioconcept
-        self.flag = [flag for flag, bioconcepts in Data.BIOCONCEPTS_BY_FLAG.items() if bioconcept in bioconcepts][0]
+        self.kingdom = [
+            kingdom for kingdom, bioconcepts in Data.BIOCONCEPTS_BY_KINGDOM.items() if bioconcept in bioconcepts][0]
         self.data = Data()
 
     def investigate(self):
-        entries = self.data.read_json(self.flag, 'training')
+        entries = self.data.read_json(self.kingdom, 'training')
         results = []
         for entry in entries['result']:
             if 'content' not in entry['example'].keys():
@@ -34,7 +35,7 @@ class DataToInvestigate:
             return True
 
     def colour_annotations(self):
-        entries = self.data.read_json(self.flag, 'training')
+        entries = self.data.read_json(self.kingdom, 'training')
         for entry in entries['result']:
             if 'content' not in entry['example'].keys():
                 continue

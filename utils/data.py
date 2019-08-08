@@ -5,15 +5,15 @@ import pathlib
 
 class Data:
     DATA_DIR_NAME = 'Challenge_9934213_data_v2'
-    DIR_NAME_BY_FLAG = {'animal': 'DATASET_AHAW_for_Challenge', 'plant': 'DATASET_PLH_for_Challenge'}
-    BIOCONCEPTS_BY_FLAG = {
+    DIR_NAME_BY_KINGDOM = {'animal': 'DATASET_AHAW_for_Challenge', 'plant': 'DATASET_PLH_for_Challenge'}
+    BIOCONCEPTS_BY_KINGDOM = {
         'plant': ['PLANT_PEST', 'PLANT_SPECIES', 'PLANT_DISEASE_COMMNAME'],
         'animal': ['PATHOGENIC_ORGANISMS', 'TARGET_SPECIES', 'LOCATION', 'PREVALENCE', 'YEAR', 'ANMETHOD']}
     HELP_DICT_NAME = 'excluded_bioconcepts_by_entity.json'
 
     def __init__(self):
         self.cwd = pathlib.Path.cwd()
-        self.bioconcepts = [bc for flag, bioconcepts in self.BIOCONCEPTS_BY_FLAG.items() for bc in bioconcepts]
+        self.bioconcepts = [bc for kingdom, bioconcepts in self.BIOCONCEPTS_BY_KINGDOM.items() for bc in bioconcepts]
         self.excluded_bioconcepts_by_entity = self.load_help_dict()
 
     def load_help_dict(self):
@@ -22,9 +22,9 @@ class Data:
             data = json.load(f)
         return data
 
-    def get_target_dir(self, flag):
-        assert flag in ['animal', 'plant']
-        dir_name = self.DIR_NAME_BY_FLAG[flag]
+    def get_target_dir(self, kingdom):
+        assert kingdom in ['animal', 'plant']
+        dir_name = self.DIR_NAME_BY_KINGDOM[kingdom]
         return self.cwd / self.DATA_DIR_NAME / dir_name
 
     @staticmethod
@@ -35,17 +35,17 @@ class Data:
         target_file = target_files[0]
         return target_dir / target_file
 
-    def read_text(self, flag, phase):
+    def read_text(self, kingdom, phase):
         assert phase in ['training', 'validation']
-        target_dir = self.get_target_dir(flag)
+        target_dir = self.get_target_dir(kingdom)
         file_path = self.get_file_path(target_dir, f'{phase}set_text')
         with open(str(file_path), 'r') as f:
             entries = [entry.rstrip() for entry in f]
         return entries
 
-    def read_json(self, flag, phase):
+    def read_json(self, kingdom, phase):
         assert phase in ['training', 'validation']
-        target_dir = self.get_target_dir(flag)
+        target_dir = self.get_target_dir(kingdom)
         file_path = self.get_file_path(target_dir, f'{phase}set_annotations')
         with open(str(file_path), encoding='utf-8') as f:
             data = json.load(f)
@@ -65,8 +65,8 @@ class Data:
 
     def learn_training_entries(self):
         entities_by_bioconcept = {bioconcept: [] for bioconcept in self.bioconcepts}
-        for flag in ['animal', 'plant']:
-            training_data = self.read_json(flag, 'training')
+        for kingdom in ['animal', 'plant']:
+            training_data = self.read_json(kingdom, 'training')
             for item in training_data['result']:
                 if 'content' not in item['example'].keys():
                     continue

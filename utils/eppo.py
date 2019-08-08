@@ -9,13 +9,14 @@ from utils.data import Data
 
 class Eppo:
     URL = 'https://data.eppo.int/api/rest/1.0'
+    OUTPUT_FILE_NAME = 'entity_taxonomy_by_bioconcept.json'
 
     def __init__(self, time_to_sleep=0.5):
         self.time_to_sleep = time_to_sleep
         self.token = os.getenv('EPPO_TOKEN', '')
         self.data = Data()
         self.cwd = pathlib.Path.cwd()
-        self.taxonomy_by_bioconcept_path = self.cwd / 'taxonomy_by_bioconcept.json'
+        self.entity_taxonomies_by_bioconcept_path = self.cwd / self.OUTPUT_FILE_NAME
 
     @staticmethod
     def try_except(response, input_value):
@@ -78,7 +79,7 @@ class Eppo:
         return None
 
     def save_data(self, data):
-        with open(str(self.taxonomy_by_bioconcept_path), 'w', encoding='utf-8') as f:
+        with open(str(self.entity_taxonomies_by_bioconcept_path), 'w', encoding='utf-8') as f:
             json.dump(data, f, ensure_ascii=False, indent=4)
 
     def save_taxonomy_data_to_json(self):
@@ -87,8 +88,7 @@ class Eppo:
         for bioconcept, entities in entities_by_bioconcept.items():
             if bioconcept in level1_taxonomy_by_bioconcept.keys():
                 print(f'working on {bioconcept}')
-                for i, entity in enumerate(entities[:5]):
-
+                for entity in entities:
                     level1_taxonomy = self.get_eppo_code_and_taxonomy(entity)
                     if level1_taxonomy is not None:
                         level1_taxonomy_by_bioconcept[bioconcept].append([entity, level1_taxonomy])

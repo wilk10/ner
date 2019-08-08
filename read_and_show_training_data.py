@@ -8,9 +8,9 @@ class DataToShow:
 
     def read_and_show(self):
         count_by_bioconcept = {}
-        for flag in ['plant', 'animal']:
-            #entries = self.read_text(flag)
-            entries = self.data.read_json(flag, 'training')
+        for kingdom in ['plant', 'animal']:
+            #entries = self.read_text(kingdom)
+            entries = self.data.read_json(kingdom, 'training')
             for i, entry in enumerate(entries['result']):
                 if 'content' not in entry['example'].keys():
                     continue

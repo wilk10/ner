@@ -12,14 +12,14 @@ class SimpleLearning:
     def fit_to_validation(self):
         output_json = {'result': []}
         results = []
-        for flag in ['animal', 'plant']:
-            validation_data = self.data.read_json(flag, 'validation')
+        for kingdom in ['animal', 'plant']:
+            validation_data = self.data.read_json(kingdom, 'validation')
             for item in validation_data['result']:
                 if 'content' not in item['example'].keys():
                     continue
                 text = item['example']['content'].lower()
                 output_item = {'example': item['example'], 'results': {'annotations': [], 'classifications': []}}
-                for bioconcept in Data.BIOCONCEPTS_BY_FLAG[flag]:
+                for bioconcept in Data.BIOCONCEPTS_BY_KINGDOM[kingdom]:
                     for entity in self.entities_by_bioconcept[bioconcept]:
                         start = text.find(entity)
                         if start != -1:
