@@ -9,6 +9,9 @@ from utils.evaluation import Evaluation
 class SpacyWithAPIs:
     MODEL = 'en_core_web_sm'
     NOUNS_NOT_IN_EPPO_FILE_NAME = 'nouns_not_in_eppo.json'
+    ACCEPTED_EPPO_NOUNS_FILE_NAME = 'accepted_nouns_from_eppo.json'
+    OUTPUT_FILE_NAME = 'predictions.json'
+    MANUALLY_EXCLUDED_EPPO_RESULTS = ['none', 'may', 'pest', 'the pest', 'argentina', 'sao', 'florida']
 
     def __init__(self):
         self.data = Data()
@@ -16,8 +19,11 @@ class SpacyWithAPIs:
         self.nlp = spacy.load(self.MODEL)
         self.eppo = Eppo(time_to_sleep=0.1)
         self.taxonomies_by_bioconcept = self.get_taxonomies_by_bioconcept()
-        self.nouns_not_in_eppo_path = self.data.cwd / self.NOUNS_NOT_IN_EPPO_FILE_NAME
-        self.nouns_not_in_eppo = self.load_nouns_not_in_eppo()
+        self.nouns_not_in_eppo_path = self.data.dict_dir / self.NOUNS_NOT_IN_EPPO_FILE_NAME
+        self.nouns_not_in_eppo = self.load_json(self.nouns_not_in_eppo_path)
+        self.accepted_eppo_nouns_path = self.data.dict_dir / self.ACCEPTED_EPPO_NOUNS_FILE_NAME
+        self.accepted_eppo_nouns_by_bioconcept = self.load_json(self.accepted_eppo_nouns_path)
+        self.output_path = self.data.dict_dir / self.OUTPUT_FILE_NAME
 
     def get_taxonomies_by_bioconcept(self):
         with open(str(self.eppo.entity_taxonomies_by_bioconcept_path), encoding='utf-8') as f:
@@ -29,14 +35,16 @@ class SpacyWithAPIs:
                     taxonomies_by_bioconcept[bioconcept].append(taxonomy)
         return taxonomies_by_bioconcept
 
-    def load_nouns_not_in_eppo(self):
-        with open(str(self.nouns_not_in_eppo_path), encoding='utf-8') as f:
-            nouns_not_in_eppo = json.load(f)
-        return nouns_not_in_eppo
+    @staticmethod
+    def load_json(file_path):
+        with open(str(file_path), encoding='utf-8') as f:
+            data = json.load(f)
+        return data
 
-    def save_nouns_not_in_eppo(self):
-        with open(str(self.nouns_not_in_eppo_path), 'w', encoding='utf-8') as f:
-            json.dump(self.nouns_not_in_eppo, f, ensure_ascii=False, indent=4)
+    @staticmethod
+    def save_json(file_path, data):
+        with open(str(file_path), 'w', encoding='utf-8') as f:
+            json.dump(data, f, ensure_ascii=False, indent=4)
 
     @staticmethod
     def check_valid_year(num):
@@ -56,6 +64,7 @@ class SpacyWithAPIs:
 
     @staticmethod
     def find_matches_and_make_annotations(entry, text, bioconcept):
+        entry = entry.replace('.', '\.')
         try:
             matches = [match for match in re.finditer(entry, text)]
         except re.error:
@@ -96,19 +105,56 @@ class SpacyWithAPIs:
             annotations.extend(new_annotations)
         return annotations
 
+    def add_eppo_data(self, noun, text, bioconcept, jsons_to_save):
+        annotations = []
+        if noun not in self.nouns_not_in_eppo and noun not in self.MANUALLY_EXCLUDED_EPPO_RESULTS:
+            if noun not in self.accepted_eppo_nouns_by_bioconcept[bioconcept]:
+                level1_taxonomy = self.eppo.get_eppo_code_and_taxonomy(noun)
+                if level1_taxonomy is not None:
+                    if level1_taxonomy in self.taxonomies_by_bioconcept[bioconcept]:
+                        annotations = self.find_matches_and_make_annotations(noun, text, bioconcept)
+                        self.accepted_eppo_nouns_by_bioconcept[bioconcept].append(noun)
+                else:
+                    self.nouns_not_in_eppo.append(noun)
+                jsons_to_save = True
+            else:
+                annotations = self.find_matches_and_make_annotations(noun, text, bioconcept)
+        return annotations, jsons_to_save
+
+    @staticmethod
+    def remove_overlapping_annotations(annotations):
+        sorted_annotations = sorted(annotations, key=lambda a: a['start'])
+        cleaned_annotations = [sorted_annotations[0]]
+        for i, annotation in enumerate(sorted_annotations[1:]):
+            previous_annotation = cleaned_annotations[-1]
+            if annotation['start'] >= previous_annotation['end']:
+                cleaned_annotations.append(annotation)
+            else:
+                annotation_length = annotation['end'] - annotation['start']
+                previous_length = previous_annotation['end'] - previous_annotation['start']
+                if annotation_length > previous_length:
+                    cleaned_annotations[-1] = annotation
+        return cleaned_annotations
+
+    def save_final_json(self, data):
+        with open(str(self.output_path), 'w', encoding='utf-8') as f:
+            json.dump(data, f, ensure_ascii=False, indent=4)
+
     def fit_to_validation(self):
         output_json = {'result': []}
         results = []
+        jsons_to_save = False
         for kingdom in ['animal', 'plant']:
             validation_data = self.data.read_json(kingdom, 'validation')
-            for item in validation_data['result']:
+            for i, item in enumerate(validation_data['result']):
+                print(i)
                 if 'content' not in item['example'].keys():
                     continue
                 text = item['example']['content'].lower()
                 output_item = {'example': item['example'], 'results': {'annotations': [], 'classifications': []}}
                 doc = self.nlp(text)
                 nouns = list(set([chunk.text for chunk in doc.noun_chunks]))
-                nums = [token.lemma_ for token in doc if token.pos_ == "NUM"]
+                nums = list(set([token.lemma_ for token in doc if token.pos_ == "NUM"]))
                 for bioconcept in Data.BIOCONCEPTS_BY_KINGDOM[kingdom]:
                     for noun in nouns:
                         if noun in self.entities_by_bioconcept[bioconcept]:
@@ -117,35 +163,37 @@ class SpacyWithAPIs:
                                 annotations = self.add_partial_initials(noun, nouns, text, bioconcept, annotations)
                             #annotations = self.add_acronyms(noun, text, annotations)
                             output_item['results']['annotations'].extend(annotations)
-                        elif bioconcept in ['PLANT_SPECIES', 'PLANT_PEST'] and noun not in self.nouns_not_in_eppo:
-                            level1_taxonomy = self.eppo.get_eppo_code_and_taxonomy(noun)
-                            if level1_taxonomy is not None:
-                                if level1_taxonomy in self.taxonomies_by_bioconcept[bioconcept]:
-                                    new_annotations = self.find_matches_and_make_annotations(noun, text, bioconcept)
-                                    output_item['results']['annotations'].extend(new_annotations)
-                                    print(f'{noun} ({bioconcept})')
-                            else:
-                                self.nouns_not_in_eppo.append(noun)
+                        elif bioconcept in ['PLANT_SPECIES', 'PLANT_PEST']:
+                            eppo_annotations, jsons_to_save = self.add_eppo_data(noun, text, bioconcept, jsons_to_save)
+                            output_item['results']['annotations'].extend(eppo_annotations)
                     for num in nums:
                         is_valid_year = self.check_valid_year(num)
                         add_year = bioconcept == 'YEAR' and is_valid_year
                         is_possible_prevalence = self.check_prevalence(num)
                         add_prevalence = bioconcept == 'PREVALENCE' and is_possible_prevalence
                         if add_year or add_prevalence:
-                            annotations = self.find_matches_and_make_annotations(num, text, bioconcept)
-                            output_item['results']['annotations'].extend(annotations)
-                    self.save_nouns_not_in_eppo()
+                            year_prevalence_annotations = self.find_matches_and_make_annotations(num, text, bioconcept)
+                            output_item['results']['annotations'].extend(year_prevalence_annotations)
+                if jsons_to_save:
+                    self.save_json(self.nouns_not_in_eppo_path, self.nouns_not_in_eppo)
+                    self.save_json(self.accepted_eppo_nouns_path, self.accepted_eppo_nouns_by_bioconcept)
+                    jsons_to_save = False
+                annotations = output_item['results']['annotations']
+                if annotations:
+                    cleaned_annotations = self.remove_overlapping_annotations(annotations)
+                    output_item['results']['annotations'] = cleaned_annotations
                 result = {
                     'text': text,
                     'true': item['results']['annotations'],
                     'pred': output_item['results']['annotations']}
                 results.append(result)
                 output_json['result'].append(output_item)
-        return results, output_json
+        self.save_final_json(output_json)
+        return results
 
     def run(self):
-        items, _ = self.fit_to_validation()
-        evaluation = Evaluation(items, verbose=False)
+        results = self.fit_to_validation()
+        evaluation = Evaluation(results, verbose=False)
         evaluation.run()
 
 
