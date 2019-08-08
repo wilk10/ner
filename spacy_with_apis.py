@@ -7,17 +7,20 @@ from utils.evaluation import Evaluation
 
 
 class SpacyWithAPIs:
+    MODEL = 'en_core_web_sm'
+    NOUNS_NOT_IN_EPPO_FILE_NAME = 'nouns_not_in_eppo.json'
+
     def __init__(self):
         self.data = Data()
         self.entities_by_bioconcept = self.data.learn_training_entries()
-        self.nlp = spacy.load('en_core_web_sm')
+        self.nlp = spacy.load(self.MODEL)
         self.eppo = Eppo(time_to_sleep=0.1)
         self.taxonomies_by_bioconcept = self.get_taxonomies_by_bioconcept()
-        self.nouns_not_in_eppo_path = self.data.cwd / "nouns_not_in_eppo.json"
+        self.nouns_not_in_eppo_path = self.data.cwd / self.NOUNS_NOT_IN_EPPO_FILE_NAME
         self.nouns_not_in_eppo = self.load_nouns_not_in_eppo()
 
     def get_taxonomies_by_bioconcept(self):
-        with open(str(self.eppo.taxonomy_by_bioconcept_path), encoding='utf-8') as f:
+        with open(str(self.eppo.entity_taxonomies_by_bioconcept_path), encoding='utf-8') as f:
             entity_taxonomies_by_bioconcept = json.load(f)
         taxonomies_by_bioconcept = {bioconcept: [] for bioconcept in entity_taxonomies_by_bioconcept.keys()}
         for bioconcept, entity_taxonomies in entity_taxonomies_by_bioconcept.items():
@@ -96,8 +99,8 @@ class SpacyWithAPIs:
     def fit_to_validation(self):
         output_json = {'result': []}
         results = []
-        for flag in ['animal', 'plant']:
-            validation_data = self.data.read_json(flag, 'validation')
+        for kingdom in ['animal', 'plant']:
+            validation_data = self.data.read_json(kingdom, 'validation')
             for item in validation_data['result']:
                 if 'content' not in item['example'].keys():
                     continue
@@ -106,7 +109,7 @@ class SpacyWithAPIs:
                 doc = self.nlp(text)
                 nouns = list(set([chunk.text for chunk in doc.noun_chunks]))
                 nums = [token.lemma_ for token in doc if token.pos_ == "NUM"]
-                for bioconcept in Data.BIOCONCEPTS_BY_FLAG[flag]:
+                for bioconcept in Data.BIOCONCEPTS_BY_KINGDOM[kingdom]:
                     for noun in nouns:
                         if noun in self.entities_by_bioconcept[bioconcept]:
                             annotations = self.find_matches_and_make_annotations(noun, text, bioconcept)
@@ -114,12 +117,13 @@ class SpacyWithAPIs:
                                 annotations = self.add_partial_initials(noun, nouns, text, bioconcept, annotations)
                             #annotations = self.add_acronyms(noun, text, annotations)
                             output_item['results']['annotations'].extend(annotations)
-                        elif flag == 'plant' and noun not in self.nouns_not_in_eppo:
+                        elif bioconcept in ['PLANT_SPECIES', 'PLANT_PEST'] and noun not in self.nouns_not_in_eppo:
                             level1_taxonomy = self.eppo.get_eppo_code_and_taxonomy(noun)
                             if level1_taxonomy is not None:
                                 if level1_taxonomy in self.taxonomies_by_bioconcept[bioconcept]:
-                                    annotations = self.find_matches_and_make_annotations(noun, text, bioconcept)
-                                    output_item['results']['annotations'].extend(annotations)
+                                    new_annotations = self.find_matches_and_make_annotations(noun, text, bioconcept)
+                                    output_item['results']['annotations'].extend(new_annotations)
+                                    print(f'{noun} ({bioconcept})')
                             else:
                                 self.nouns_not_in_eppo.append(noun)
                     for num in nums:
