@@ -172,5 +172,10 @@
         "water deficiency",
         "oleander leaf scorch"
     ],
-    "PLANT_DISEASE_COMMNAME": []
+    "PLANT_DISEASE_COMMNAME": [],
+    "PATHOGENIC_ORGANISMS": [
+        "volunteers",
+        "rodents",
+        "ruminants"
+    ]
 }

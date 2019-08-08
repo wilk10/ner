@@ -108,5 +108,6 @@
         "southern highbush blueberry",
         "american sycamore"
     ],
-    "PLANT_DISEASE_COMMNAME": []
+    "PLANT_DISEASE_COMMNAME": [],
+    "PATHOGENIC_ORGANISMS": []
 }

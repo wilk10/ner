@@ -83,6 +83,7 @@ class Eppo:
     def save_taxonomy_data_to_json(self):
         entities_by_bioconcept = self.data.learn_training_entries()
         level1_taxonomy_by_bioconcept = {bioconcept: [] for bioconcept in Data.BIOCONCEPTS_BY_KINGDOM['plant']}
+        level1_taxonomy_by_bioconcept['PATHOGENIC_ORGANISMS'] = []
         for bioconcept, entities in entities_by_bioconcept.items():
             if bioconcept in level1_taxonomy_by_bioconcept.keys():
                 print(f'working on {bioconcept}')
