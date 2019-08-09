@@ -1,6 +1,7 @@
 import os
 import time
 import requests
+import numpy as np
 import urllib.parse
 from utils.data import Data
 
@@ -9,6 +10,9 @@ class Eppo:
     URL = 'https://data.eppo.int/api/rest/1.0'
     OUTPUT_FILE_NAME = 'entity_taxonomy_by_bioconcept.json'
     NOUNS_NOT_IN_EPPO_FILE_NAME = 'nouns_not_in_eppo.json'
+    EPPO_DATATYPES = ['GAF', 'PFL', 'GAI', 'SIT', 'SFT', 'SPT']
+    CLASS_BY_LANGUAGE = {'LA': 1, 'EN': 2}
+    EPPO_INFO_KEYS = ['categorization', 'distribution', 'pests', 'hosts']
 
     def __init__(self, time_to_sleep=0.5):
         self.time_to_sleep = time_to_sleep
@@ -19,40 +23,41 @@ class Eppo:
         self.entity_taxonomies_by_bioconcept_path = self.data.dict_dir / self.OUTPUT_FILE_NAME
 
     @staticmethod
-    def try_except(response, input_value):
-        try:
-            first_result = response[0]
-        except IndexError:
-            first_result = None
-        except KeyError as e:
-            print(f'invalid response: {response} {e} with {input_value}')
-            first_result = None
-        except TypeError as e:
-            print(f'other error: {response} {e} with {input_value}')
-            first_result = None
-        return first_result
+    def check_response(response):
+        if isinstance(response, list) and not response:
+            result = None
+        else:
+            result = response
+        return result
 
-    def get_eppo_code(self, entity):
+    def make_call(self, input_value, url, params):
+        parsed_params = urllib.parse.urlencode(params)
+        response = requests.get(url, params=parsed_params).json()
+        time.sleep(self.time_to_sleep)
+        return self.check_response(response)
+
+    def get_search_result(self, entity):
         params = {'authtoken': self.token, 'kw': entity, 'searchfor': 3, 'searchmode': 1, 'typeorg': 0}
-        parsed_params = urllib.parse.urlencode(params)
         url = self.URL + f'/tools/search'
-        response = requests.get(url, params=parsed_params).json()
-        result = self.try_except(response, entity)
-        time.sleep(self.time_to_sleep)
-        if result is not None:
-            return result['eppocode']
+        return self.make_call(entity, url, params)
 
-    def get_level1_taxonomy(self, eppo_code):
+    def get_taxonomy(self, eppo_code):
         params = {'authtoken': self.token}
-        parsed_params = urllib.parse.urlencode(params)
         url = self.URL + f'/taxon/{eppo_code}/taxonomy'
-        response = requests.get(url, params=parsed_params).json()
-        result = self.try_except(response, eppo_code)
-        time.sleep(self.time_to_sleep)
-        if result is not None:
-            level = result['level']
+        response = self.make_call(eppo_code, url, params)
+        if response is not None:
+            level = response[0]['level']
             assert level == 1, f'level {level} is not 1'
-            return result['prefname']
+            return response
+
+    def get_eppocode_infos(self, eppo_code):
+        params = {'authtoken': self.token}
+        url = self.URL + f'/taxon/{eppo_code}'
+        response = self.make_call(eppo_code, url, params)
+        if response is not None:
+            return [response['attached_infos'][key] for key in self.EPPO_INFO_KEYS]
+        else:
+            return [np.nan] * 4
 
     @staticmethod
     def clean_the_entity(entity):
@@ -71,9 +76,11 @@ class Eppo:
         clean_entity = self.clean_the_entity(entity)
         valid_keyword = self.check_valid_keyword(clean_entity)
         if valid_keyword:
-            eppo_code = self.get_eppo_code(clean_entity)
+            response = self.get_search_result(clean_entity)
+            eppo_code = response[0]['eppocode']
             if eppo_code is not None:
-                level1_taxonomy = self.get_level1_taxonomy(eppo_code)
+                taxonomy = self.get_taxonomy(eppo_code)
+                level1_taxonomy = taxonomy[0]['prefname']
                 if level1_taxonomy is not None:
                     return level1_taxonomy
         return None
@@ -90,6 +97,36 @@ class Eppo:
                     if level1_taxonomy is not None:
                         level1_taxonomy_by_bioconcept[bioconcept].append([entity, level1_taxonomy])
                 self.data.save_json(self.entity_taxonomies_by_bioconcept_path, level1_taxonomy_by_bioconcept)
+
+    def get_eppo_search_xs(self, result):
+        datatype = self.EPPO_DATATYPES.index(result['type'])
+        is_preferred = result['ispreferred']
+        language = result['lang']
+        language_class = 0 if language not in self.CLASS_BY_LANGUAGE.keys() else self.CLASS_BY_LANGUAGE[language]
+        is_active = result['isactive']
+        return [datatype, is_preferred, language_class, is_active]
+
+    def return_features(self, entity):
+        if entity not in self.nouns_not_in_eppo:
+            response = self.get_search_result(entity)
+            if response is not None:
+                eppo_xs = [len(response)]
+                eppo_code = response[0]['eppocode']
+                eppo_search_xs = self.get_eppo_search_xs(response[0])
+                eppo_xs.extend(eppo_search_xs)
+                taxonomy = self.get_taxonomy(eppo_code)
+                if taxonomy:
+                    lowest_level_taxonomy = taxonomy[-1]['level']
+                else:
+                    lowest_level_taxonomy = 0
+                eppo_xs.append(lowest_level_taxonomy)
+                eppo_info_xs = self.get_eppocode_infos(eppo_code)
+                eppo_xs.extend(eppo_info_xs)
+            else:
+                eppo_xs = [0] + [np.nan] * 9
+        else:
+            eppo_xs = [0] + [np.nan] * 9
+        return eppo_xs
 
 
 if __name__ == '__main__':
