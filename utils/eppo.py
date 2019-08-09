@@ -1,5 +1,4 @@
 import os
-import json
 import time
 import requests
 import urllib.parse
@@ -9,11 +8,14 @@ from utils.data import Data
 class Eppo:
     URL = 'https://data.eppo.int/api/rest/1.0'
     OUTPUT_FILE_NAME = 'entity_taxonomy_by_bioconcept.json'
+    NOUNS_NOT_IN_EPPO_FILE_NAME = 'nouns_not_in_eppo.json'
 
     def __init__(self, time_to_sleep=0.5):
         self.time_to_sleep = time_to_sleep
         self.token = os.getenv('EPPO_TOKEN', '')
         self.data = Data()
+        self.nouns_not_in_eppo_path = self.data.dict_dir / self.NOUNS_NOT_IN_EPPO_FILE_NAME
+        self.nouns_not_in_eppo = self.data.load_json(self.nouns_not_in_eppo_path)
         self.entity_taxonomies_by_bioconcept_path = self.data.dict_dir / self.OUTPUT_FILE_NAME
 
     @staticmethod
@@ -76,10 +78,6 @@ class Eppo:
                     return level1_taxonomy
         return None
 
-    def save_data(self, data):
-        with open(str(self.entity_taxonomies_by_bioconcept_path), 'w', encoding='utf-8') as f:
-            json.dump(data, f, ensure_ascii=False, indent=4)
-
     def save_taxonomy_data_to_json(self):
         entities_by_bioconcept = self.data.learn_training_entries()
         level1_taxonomy_by_bioconcept = {bioconcept: [] for bioconcept in Data.BIOCONCEPTS_BY_KINGDOM['plant']}
@@ -91,7 +89,7 @@ class Eppo:
                     level1_taxonomy = self.get_eppo_code_and_taxonomy(entity)
                     if level1_taxonomy is not None:
                         level1_taxonomy_by_bioconcept[bioconcept].append([entity, level1_taxonomy])
-                self.save_data(level1_taxonomy_by_bioconcept)
+                self.data.save_json(self.entity_taxonomies_by_bioconcept_path, level1_taxonomy_by_bioconcept)
 
 
 if __name__ == '__main__':

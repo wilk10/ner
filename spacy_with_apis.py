@@ -8,7 +8,6 @@ from utils.evaluation import Evaluation
 
 class SpacyWithAPIs:
     MODEL = 'en_core_web_sm'
-    NOUNS_NOT_IN_EPPO_FILE_NAME = 'nouns_not_in_eppo.json'
     ACCEPTED_EPPO_NOUNS_FILE_NAME = 'accepted_nouns_from_eppo.json'
     NOT_ACCEPTED_EPPO_NOUNS_FILE_NAME = 'nouns_in_eppo_but_not_accepted.json'
     OUTPUT_FILE_NAME = 'predictions.json'
@@ -20,12 +19,10 @@ class SpacyWithAPIs:
         self.nlp = spacy.load(self.MODEL)
         self.eppo = Eppo(time_to_sleep=0.1)
         self.taxonomies_by_bioconcept = self.get_taxonomies_by_bioconcept()
-        self.nouns_not_in_eppo_path = self.data.dict_dir / self.NOUNS_NOT_IN_EPPO_FILE_NAME
-        self.nouns_not_in_eppo = self.load_json(self.nouns_not_in_eppo_path)
         self.accepted_eppo_nouns_path = self.data.dict_dir / self.ACCEPTED_EPPO_NOUNS_FILE_NAME
-        self.accepted_eppo_nouns_by_bioconcept = self.load_json(self.accepted_eppo_nouns_path)
+        self.accepted_eppo_nouns_by_bioconcept = self.data.load_json(self.accepted_eppo_nouns_path)
         self.not_accepted_eppo_nouns_path = self.data.dict_dir / self.NOT_ACCEPTED_EPPO_NOUNS_FILE_NAME
-        self.not_accepted_eppo_nouns_by_bioconcept = self.load_json(self.not_accepted_eppo_nouns_path)
+        self.not_accepted_eppo_nouns_by_bioconcept = self.data.load_json(self.not_accepted_eppo_nouns_path)
         self.output_path = self.data.dict_dir / self.OUTPUT_FILE_NAME
 
     def get_taxonomies_by_bioconcept(self):
@@ -37,17 +34,6 @@ class SpacyWithAPIs:
                 if taxonomy not in taxonomies_by_bioconcept[bioconcept]:
                     taxonomies_by_bioconcept[bioconcept].append(taxonomy)
         return taxonomies_by_bioconcept
-
-    @staticmethod
-    def load_json(file_path):
-        with open(str(file_path), encoding='utf-8') as f:
-            data = json.load(f)
-        return data
-
-    @staticmethod
-    def save_json(file_path, data):
-        with open(str(file_path), 'w', encoding='utf-8') as f:
-            json.dump(data, f, ensure_ascii=False, indent=4)
 
     @staticmethod
     def check_valid_year(num):
@@ -109,7 +95,7 @@ class SpacyWithAPIs:
 
     def add_eppo_data(self, noun, text, bioconcept, jsons_to_save):
         annotations = []
-        if noun not in self.nouns_not_in_eppo and noun not in self.MANUALLY_EXCLUDED_EPPO_RESULTS:
+        if noun not in self.eppo.nouns_not_in_eppo and noun not in self.MANUALLY_EXCLUDED_EPPO_RESULTS:
             if noun not in self.accepted_eppo_nouns_by_bioconcept[bioconcept]:
                 if noun not in self.not_accepted_eppo_nouns_by_bioconcept[bioconcept]:
                     level1_taxonomy = self.eppo.get_eppo_code_and_taxonomy(noun)
@@ -120,7 +106,7 @@ class SpacyWithAPIs:
                         else:
                             self.not_accepted_eppo_nouns_by_bioconcept[bioconcept].append(noun)
                     else:
-                        self.nouns_not_in_eppo.append(noun)
+                        self.eppo.nouns_not_in_eppo.append(noun)
                     jsons_to_save = True
             else:
                 annotations = self.find_matches_and_make_annotations(noun, text, bioconcept)
@@ -175,9 +161,9 @@ class SpacyWithAPIs:
                             year_prevalence_annotations = self.find_matches_and_make_annotations(num, text, bioconcept)
                             output_item['results']['annotations'].extend(year_prevalence_annotations)
                 if jsons_to_save:
-                    self.save_json(self.nouns_not_in_eppo_path, self.nouns_not_in_eppo)
-                    self.save_json(self.accepted_eppo_nouns_path, self.accepted_eppo_nouns_by_bioconcept)
-                    self.save_json(self.not_accepted_eppo_nouns_path, self.not_accepted_eppo_nouns_by_bioconcept)
+                    self.data.save_json(self.eppo.nouns_not_in_eppo_path, self.eppo.nouns_not_in_eppo)
+                    self.data.save_json(self.accepted_eppo_nouns_path, self.accepted_eppo_nouns_by_bioconcept)
+                    self.data.save_json(self.not_accepted_eppo_nouns_path, self.not_accepted_eppo_nouns_by_bioconcept)
                     jsons_to_save = False
                 annotations = output_item['results']['annotations']
                 if annotations:
@@ -189,7 +175,7 @@ class SpacyWithAPIs:
                     'pred': output_item['results']['annotations']}
                 results.append(result)
                 output_json['result'].append(output_item)
-        self.save_json(self.output_path, output_json)
+        self.data.save_json(self.output_path, output_json)
         return results
 
     def run(self):

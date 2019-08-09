@@ -11,10 +11,7 @@ class CatLife:
     def get_response(self, entity):
         params = {'name': entity, 'format': 'json'}
         parsed_params = urllib.parse.urlencode(params)
-        response = requests.get(self.URL, params=parsed_params).json()
-        print(response)
-        import pdb
-        pdb.set_trace()
+        return requests.get(self.URL, params=parsed_params).json()
 
 
 if __name__ == '__main__':

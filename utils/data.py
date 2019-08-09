@@ -16,13 +16,19 @@ class Data:
         self.cwd = pathlib.Path.cwd()
         self.dict_dir = self.cwd / self.DICTIONARIES_DIR_NAME
         self.bioconcepts = [bc for kingdom, bioconcepts in self.BIOCONCEPTS_BY_KINGDOM.items() for bc in bioconcepts]
-        self.excluded_bioconcepts_by_entity = self.load_help_dict()
+        self.excluded_bioconcepts_by_entity_path = self.dict_dir / self.HELP_DICT_NAME
+        self.excluded_bioconcepts_by_entity = self.load_json(self.excluded_bioconcepts_by_entity_path)
 
-    def load_help_dict(self):
-        file_path = self.dict_dir / self.HELP_DICT_NAME
-        with open(str(file_path)) as f:
+    @staticmethod
+    def load_json(file_path):
+        with open(str(file_path), encoding='utf-8') as f:
             data = json.load(f)
         return data
+
+    @staticmethod
+    def save_json(file_path, data):
+        with open(str(file_path), 'w', encoding='utf-8') as f:
+            json.dump(data, f, ensure_ascii=False, indent=4)
 
     def get_target_dir(self, kingdom):
         assert kingdom in ['animal', 'plant']
