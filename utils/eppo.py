@@ -23,28 +23,33 @@ class Eppo:
         self.entity_taxonomies_by_bioconcept_path = self.data.dict_dir / self.OUTPUT_FILE_NAME
 
     @staticmethod
-    def check_response(response):
+    def check_response(response, is_search):
         if isinstance(response, list) and not response:
             result = None
+        elif isinstance(response, list) and isinstance(response[0], dict):
+            result = response
+        elif isinstance(response, dict) and is_search:
+            result = None
+            print(response)
         else:
             result = response
         return result
 
-    def make_call(self, input_value, url, params):
+    def make_call(self, url, params, is_search=False):
         parsed_params = urllib.parse.urlencode(params)
         response = requests.get(url, params=parsed_params).json()
         time.sleep(self.time_to_sleep)
-        return self.check_response(response)
+        return self.check_response(response, is_search)
 
     def get_search_result(self, entity):
         params = {'authtoken': self.token, 'kw': entity, 'searchfor': 3, 'searchmode': 1, 'typeorg': 0}
         url = self.URL + f'/tools/search'
-        return self.make_call(entity, url, params)
+        return self.make_call(url, params, is_search=True)
 
     def get_taxonomy(self, eppo_code):
         params = {'authtoken': self.token}
         url = self.URL + f'/taxon/{eppo_code}/taxonomy'
-        response = self.make_call(eppo_code, url, params)
+        response = self.make_call(url, params)
         if response is not None:
             level = response[0]['level']
             assert level == 1, f'level {level} is not 1'
@@ -53,8 +58,9 @@ class Eppo:
     def get_eppocode_infos(self, eppo_code):
         params = {'authtoken': self.token}
         url = self.URL + f'/taxon/{eppo_code}'
-        response = self.make_call(eppo_code, url, params)
+        response = self.make_call(url, params)
         if response is not None:
+            assert isinstance(response, dict)
             return [response['attached_infos'][key] for key in self.EPPO_INFO_KEYS]
         else:
             return [np.nan] * 4
@@ -99,21 +105,25 @@ class Eppo:
                 self.data.save_json(self.entity_taxonomies_by_bioconcept_path, level1_taxonomy_by_bioconcept)
 
     def get_eppo_search_xs(self, result):
-        datatype = self.EPPO_DATATYPES.index(result['type'])
+        eppo_code = result['eppocode']
+        if result['type'] not in self.EPPO_DATATYPES:
+            datatype = 6
+        else:
+            datatype = self.EPPO_DATATYPES.index(result['type'])
         is_preferred = result['ispreferred']
         language = result['lang']
         language_class = 0 if language not in self.CLASS_BY_LANGUAGE.keys() else self.CLASS_BY_LANGUAGE[language]
         is_active = result['isactive']
-        return [datatype, is_preferred, language_class, is_active]
+        return [eppo_code, datatype, is_preferred, language_class, is_active]
 
-    def return_features(self, entity):
-        if entity not in self.nouns_not_in_eppo:
+    def return_features(self, entity, n_columns):
+        if entity not in self.nouns_not_in_eppo and len(entity) >= 3:
             response = self.get_search_result(entity)
             if response is not None:
                 eppo_xs = [len(response)]
-                eppo_code = response[0]['eppocode']
                 eppo_search_xs = self.get_eppo_search_xs(response[0])
                 eppo_xs.extend(eppo_search_xs)
+                eppo_code = eppo_search_xs[0]
                 taxonomy = self.get_taxonomy(eppo_code)
                 if taxonomy:
                     lowest_level_taxonomy = taxonomy[-1]['level']
@@ -123,9 +133,9 @@ class Eppo:
                 eppo_info_xs = self.get_eppocode_infos(eppo_code)
                 eppo_xs.extend(eppo_info_xs)
             else:
-                eppo_xs = [0] + [np.nan] * 9
+                eppo_xs = [0] + [np.nan] * (n_columns - 1)
         else:
-            eppo_xs = [0] + [np.nan] * 9
+            eppo_xs = [0] + [np.nan] * (n_columns - 1)
         return eppo_xs
 
 
