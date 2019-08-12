@@ -11,7 +11,7 @@ class Eppo:
     OUTPUT_FILE_NAME = 'entity_taxonomy_by_bioconcept.json'
     NOUNS_NOT_IN_EPPO_FILE_NAME = 'nouns_not_in_eppo.json'
     EPPO_DATATYPES = ['GAF', 'PFL', 'GAI', 'SIT', 'SFT', 'SPT']
-    CLASS_BY_LANGUAGE = {'LA': 1, 'EN': 2}
+    CLASS_BY_LANGUAGE = {'la': 1, 'en': 2}
     EPPO_INFO_KEYS = ['categorization', 'distribution', 'pests', 'hosts']
 
     def __init__(self, time_to_sleep=0.5):
@@ -114,7 +114,7 @@ class Eppo:
         language = result['lang']
         language_class = 0 if language not in self.CLASS_BY_LANGUAGE.keys() else self.CLASS_BY_LANGUAGE[language]
         is_active = result['isactive']
-        return [eppo_code, datatype, is_preferred, language_class, is_active]
+        return [eppo_code, datatype, is_preferred, language_class, int(is_active)]
 
     def return_features(self, entity, n_columns):
         if entity not in self.nouns_not_in_eppo and len(entity) >= 3:

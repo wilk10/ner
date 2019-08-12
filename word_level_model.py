@@ -1,6 +1,11 @@
+import sys
 import spacy
 import pandas
 import numpy as np
+import statsmodels.api
+from sklearn.model_selection import train_test_split
+from sklearn.feature_selection import RFE
+from sklearn.linear_model import LogisticRegression
 from utils.data import Data
 from utils.eppo import Eppo
 from utils.cat_life import CatLife
@@ -10,27 +15,46 @@ from utils.evaluation import Evaluation
 class WordLevelModel:
     MODEL = 'en_core_web_sm'
     COLUMNS_BY_SOURCE = {
+        'info': ['entity', 'kingdom', 'item_id', 'entity_id'],
         'y': ['PLPE', 'PLSP', 'PLDI', 'PAOR', 'TASP', 'LOCA', 'PREV', 'YEAR', 'ANME'],
-        'general': ['kingdom', 'item_id', 'entity_id', 'length', 'n_occurr', 'in_first_100'],
+        'general': ['length', 'n_occurr', 'in_first_100'],
         'span': ['sentiment', 'n_tokens', 'vector_norm'],
         'token': [
             'token_i', 'any_digits', 'all_digits', 'any_like_num', 'any_title', 'any_oov', 'any_propn', 'any_verb',
             'any_nsubj', 'any_dobj', 'any_compound'],
         'eppo': [
-            'eppo_n_results', 'eppo_code', 'eppo_datatype', 'is_preferred', 'lang', 'active', 'taxonomy_level',
-            'n_categ', 'n_distrib', 'n_pests', 'n_hosts'],
-        'cat': ['cat_n_results', 'accepted_name', 'is_extinct']}
+            'eppo_n_results', 'eppo_code', 'eppo_type', 'is_preferred', 'lang', 'active', 'taxonomy', 'n_categ',
+            'n_distrib', 'n_pests', 'n_hosts'],
+        'cat': ['cat_n_results', 'is_accepted', 'is_extinct']}
     DF_FILE_NAME = 'entities_dataframe.csv'
     COLUMNS_TO_NOT_ANALYSE = ['kingdom', 'item_id', 'entity_id', 'eppo_code']
+    COLUMNS_TO_EXCLUDE = ['sentiment', 'any_oov']
 
-    def __init__(self):
+    def __init__(self, do_extract_features=False):
+        self.do_extract_features = do_extract_features
         self.data = Data()
         self.entities_by_bioconcept = self.data.learn_training_entries()
         self.nlp = spacy.load(self.MODEL)
-        self.eppo = Eppo(time_to_sleep=0.1)
+        self.eppo = Eppo(time_to_sleep=0)
         self.cat = CatLife(time_to_sleep=0)
         self.columns = [column for _, columns in self.COLUMNS_BY_SOURCE.items() for column in columns]
         self.entities_df_path = self.data.cwd / self.DF_FILE_NAME
+        self.df = self.get_training_df()
+        pandas.set_option("display.max_rows", 500)
+        pandas.set_option("display.max_columns", 50)
+        pandas.set_option('display.width', 200)
+
+    def get_training_df(self):
+        if self.do_extract_features:
+            if self.entities_df_path.exists():
+                input_df = pandas.read_csv(self.entities_df_path, index_col=0)
+            else:
+                input_df = pandas.DataFrame(columns=self.columns)
+            df = self.extract_training_features(input_df)
+        else:
+            columns_to_use = [column for column in self.columns if column not in self.COLUMNS_TO_EXCLUDE]
+            df = pandas.read_csv(self.entities_df_path, index_col=0, usecols=columns_to_use)
+        return df
 
     def find_tag_if_any(self, entity, annotated_entities, tags):
         tag = None
@@ -58,9 +82,10 @@ class WordLevelModel:
         return list(ys)
 
     def extract_data_nouns(self, span, tag, doc, k, i, j):
+        info = [span.lower_, k, i, j]
         ys = self.get_ys(tag)
         chunks = [chunk.lower_ for chunk in doc.noun_chunks]
-        general_xs = [k, i, j, len(span.text), chunks.count(span.lower_), int(span.lower_ in doc.text[:100].lower())]
+        general_xs = [len(span.text), chunks.count(span.lower_), int(span.lower_ in doc.text[:100].lower())]
         span_xs = [span.sentiment, len([token for token in span]), span.vector_norm]
         tokens = [token for token in span]
         token_1_xs = [
@@ -68,9 +93,9 @@ class WordLevelModel:
             any([t.like_num for t in tokens]), any([t.is_title for t in tokens]), any([t.is_oov for t in tokens])]
         token_1_xs = [int(val) for val in token_1_xs]
         token_2_xs = [
-            any([t.pos == 'PROPN' for t in tokens]), any([t.pos == 'VERB' for t in tokens]),
-            any([t.dep == 'nsubj' for t in tokens]), any([t.dep == 'dobj' for t in tokens]),
-            any([t.dep == 'compound' for t in tokens])]
+            any([t.pos_ == 'PROPN' for t in tokens]), any([t.pos_ == 'VERB' for t in tokens]),
+            any([t.dep_ == 'nsubj' for t in tokens]), any([t.dep_ == 'dobj' for t in tokens]),
+            any([t.dep_ == 'compound' for t in tokens])]
         token_2_xs = [int(val) for val in token_2_xs]
         eppo_xs = self.eppo.return_features(span.lower_, len(self.COLUMNS_BY_SOURCE['eppo']))
         cat_response = self.cat.get_response(span.lower_)
@@ -81,28 +106,27 @@ class WordLevelModel:
                 cat_xs[1] = int(cat_results['name_status'] == 'accepted name')
             if 'is_extinct' in cat_results.keys():
                 cat_xs[2] = int(cat_results['is_extinct'] == 'true')
-        data = ys + general_xs + span_xs + token_1_xs + token_2_xs + eppo_xs + cat_xs
+        data = info + ys + general_xs + span_xs + token_1_xs + token_2_xs + eppo_xs + cat_xs
         return pandas.Series(data, index=self.columns)
 
     def extract_data_nums(self, token, tag, doc, k, i, j):
+        info = [token.lower_, k, i, j]
         ys = self.get_ys(tag)
         chunks = [token.lower_ for token in doc]
-        general_xs = [k, i, j, len(token.text), chunks.count(token.lower_), int(token.lower_ in doc.text[:100].lower())]
+        general_xs = [len(token.text), chunks.count(token.lower_), int(token.lower_ in doc.text[:100].lower())]
         span_xs = [token.sentiment, 1, token.vector_norm]
         token_1_xs =[token.i, token.is_digit, token.is_digit, token.like_num, token.is_title, token.is_oov]
         token_1_xs = [int(val) for val in token_1_xs]
         token_2_xs = [
-            token.pos == 'PROPN', token.pos == 'VERB', token.dep == 'nsubj', token.dep == 'dobj',
-            token.dep == 'compound']
+            token.pos_ == 'PROPN', token.pos_ == 'VERB', token.dep_ == 'nsubj', token.dep_ == 'dobj',
+            token.dep_ == 'compound']
         token_2_xs = [int(val) for val in token_2_xs]
-        eppo_xs = [np.nan] * len(self.COLUMNS_BY_SOURCE['eppo'])
-        cat_xs = [np.nan] * len(self.COLUMNS_BY_SOURCE['cat'])
-        data = ys + general_xs + span_xs + token_1_xs + token_2_xs + eppo_xs + cat_xs
+        eppo_xs = [0] + [np.nan] * (len(self.COLUMNS_BY_SOURCE['eppo']) - 1)
+        cat_xs = [0] + [np.nan] * (len(self.COLUMNS_BY_SOURCE['cat']) - 1)
+        data = info + ys + general_xs + span_xs + token_1_xs + token_2_xs + eppo_xs + cat_xs
         return pandas.Series(data, index=self.columns)
 
-    def extract_training_features(self):
-        df = pandas.read_csv(self.entities_df_path, index_col=0)
-        #df = pandas.DataFrame(columns=self.columns)
+    def extract_training_features(self, df):
         for kingdom in ['animal', 'plant']:
             training_data = self.data.read_json(kingdom, 'training')
             for i, item in enumerate(training_data['result']):
@@ -129,12 +153,111 @@ class WordLevelModel:
                             row = self.extract_data_nouns(entity, tag, doc, kingdom, i, j)
                         else:
                             row = self.extract_data_nums(entity, tag, doc, kingdom, i, j)
-                        row.name = entity.lower_
-                        df = df.append(row)
+                        df = df.append(row, ignore_index=True)
                 df.to_csv(self.entities_df_path)
         return df
 
-    def fit_to_validation(self, df):
+    def explore_features(self):
+        for column in self.df.columns:
+            print(f'{self.df[column].value_counts()}\n')
+        for i, this_y in enumerate(self.COLUMNS_BY_SOURCE['y']):
+            print(f'{this_y}')
+            other_ys = [y for y in self.COLUMNS_BY_SOURCE['y'] if y != this_y]
+            selected_columns = [column for column in self.df.columns if column not in other_ys]
+            kingdom = 'plant' if i <= 2 else 'animal'
+            kingdom_df = self.df.loc[self.df.kingdom == kingdom]
+            y_df = kingdom_df.loc[:, selected_columns]
+            for column in selected_columns:
+                group_by = y_df.groupby([column, this_y]).size()
+                print(group_by)
+
+    def fix_data(self):
+        corrected_df = self.df.copy()
+        for column in ['lang', 'active', 'taxonomy', 'n_categ', 'n_distrib', 'n_pests', 'n_hosts', 'is_accepted']:
+            column_data = self.df[column]
+            corrected_data = column_data.fillna(0)
+            corrected_df[column] = corrected_data
+        for column in ['is_preferred', 'is_extinct']:
+            column_data = self.df[column]
+            corrected_data = column_data.fillna(1)
+            corrected_df[column] = corrected_data
+        eppo_type_data = self.df['eppo_type']
+        eppo_type_data += 1
+        eppo_type_data.loc[eppo_type_data == 7.0] = 0
+        eppo_type_data = eppo_type_data.fillna(0)
+        corrected_df['eppo_type'] = eppo_type_data
+        return corrected_df
+
+    @staticmethod
+    def remove_correlated_features(df, threshold=0.7):
+        columns_to_exclude = []
+        correlation_matrix = df.corr()
+        y_column = correlation_matrix.columns[0]
+        for column in correlation_matrix.columns:
+            other_columns = [c for c in correlation_matrix.columns if c != column]
+            series = correlation_matrix[column][other_columns]
+            features_to_check = [f for f, corr in series.items() if corr > threshold or corr < -threshold] + [column]
+            if len(features_to_check) > 1:
+                correlations_with_y = correlation_matrix.loc[y_column, features_to_check]
+                id_max_correlation = np.abs(correlations_with_y).values.argmax()
+                column_to_keep = correlations_with_y.index.values[id_max_correlation]
+                columns_to_exclude_now = [i for i in correlations_with_y.index.values if i != column_to_keep]
+                columns_to_exclude.extend(columns_to_exclude_now)
+        columns_to_exclude_final = list(set(columns_to_exclude))
+        columns_to_keep = [c for c in df.columns if c not in columns_to_exclude_final]
+        final_df = df.loc[:, columns_to_keep]
+        assert final_df.columns[0] == y_column
+        print(f'{y_column}: excluded these columns for high correlation: {columns_to_exclude_final}')
+        return final_df
+
+    def preprocess_dataset_and_split(self, kingdom_df, selected_columns):
+        y_full_df = kingdom_df.loc[:, selected_columns]
+        selected_df = y_full_df.loc[:, selected_columns].drop_duplicates()
+        this_y = selected_df.columns[0]
+        if this_y == 'YEAR':
+            custom_columns = [c for c in selected_df.columns if c != 'n_pests']
+            selected_df = selected_df.loc[:, custom_columns]
+        y_df = self.remove_correlated_features(selected_df)
+        y = y_df[this_y]
+        x_columns = [c for c in y_df.columns if c != this_y]
+        X = y_df.loc[:, x_columns]
+        X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.25, random_state=42)
+        print(f'{this_y}: X_train {X_train.shape} | X_test {X_test.shape}')
+        print(f'{sum(y_train) / len(y_train):.2f}% of 1s in train set')
+        print(f'{sum(y_test) / len(y_test):.2f}% of 1s in test set')
+        return X_train, X_test, y_train, y_test
+
+    def train(self, df):
+        metrics_by_y = dict.fromkeys(self.COLUMNS_BY_SOURCE['y'])
+        for i, this_y in enumerate(self.COLUMNS_BY_SOURCE['y']):
+            print(f'\n{this_y}\n')
+            other_ys = [y for y in self.COLUMNS_BY_SOURCE['y'] if y != this_y]
+            selected_columns = [
+                c for c in df.columns
+                if c not in other_ys and c not in self.COLUMNS_TO_EXCLUDE and c not in self.COLUMNS_TO_NOT_ANALYSE]
+            kingdom = 'plant' if i <= 2 else 'animal'
+            kingdom_df = df.loc[df.kingdom == kingdom]
+            X_train, X_test, y_train, y_test = self.preprocess_dataset_and_split(kingdom_df, selected_columns)
+            logreg = LogisticRegression(solver='liblinear')
+            rfe = RFE(logreg, 7)
+            rfe = rfe.fit(X_train, y_train)
+            remaining_features = X_train.columns[rfe.support_]
+            filtered_X_train = X_train.loc[:, remaining_features]
+            logit_model = statsmodels.api.Logit(y_train, filtered_X_train)
+            result = logit_model.fit(maxiter=200)
+            print(result.summary2())
+            print('-------------------------------------------------------------')
+            logreg.fit(filtered_X_train, y_train)
+            y_pred = logreg.predict(X_test.loc[:, filtered_X_train.columns])
+            metrics = Evaluation.calculate_metrics(y_test, y_pred)
+            metrics_by_y[this_y] = metrics
+        metrics_df = pandas.DataFrame(metrics_by_y)
+        average_f1 = np.mean(metrics_df.T.f1) * 100
+        print(metrics_df.T)
+        print(f'average f1 score: {average_f1:.0f}%')
+
+    '''
+    def fit_to_validation(self):
         output_json = {'result': []}
         results = []
         jsons_to_save = False
@@ -147,13 +270,18 @@ class WordLevelModel:
                 output_item = {'example': item['example'], 'results': {'annotations': [], 'classifications': []}}
                 doc = self.nlp(text)
                 # make features
+    '''
 
     def run(self):
-        df = self.extract_training_features()
-        results = self.fit_to_validation(df)
+        #self.explore_features()
+        df = self.fix_data()
+        self.train(df)
+        '''
+        results = self.fit_to_validation()
         evaluation = Evaluation(results, verbose=False)
         evaluation.run()
+        '''
 
 
 if __name__ == '__main__':
-    WordLevelModel().run()
+    WordLevelModel(do_extract_features=False).run()

@@ -64,20 +64,25 @@ class Evaluation:
                 self.show_evaluations_one_by_one(ys_by_bioconcepts)
         return ys_by_bioconcepts
 
+    @staticmethod
+    def calculate_metrics(y_true, y_pred):
+        metrics = {
+            'f1': f1_score(y_true, y_pred),
+            'precision': precision_score(y_true, y_pred),
+            'recall': recall_score(y_true, y_pred),
+            'correct': sum([true == pred for true, pred in zip(y_true, y_pred)]),
+            'undetected': sum([true == 1 and pred == 0 for true, pred in zip(y_true, y_pred)]),
+            'misfired': sum([true == 0 and pred == 1 for true, pred in zip(y_true, y_pred)]),
+            'total': len(y_pred)}
+        return metrics
+
     def run(self):
         ys_by_bioconcept = self.calculate_ys_by_bioconcept()
         metrics_by_bioconcept = dict.fromkeys(self.bioconcepts)
         for bioconcept in self.bioconcepts:
             y_true = ys_by_bioconcept[bioconcept]['true']
             y_pred = ys_by_bioconcept[bioconcept]['pred']
-            metrics = {
-                'f1': f1_score(y_true, y_pred),
-                'precision': precision_score(y_true, y_pred),
-                'recall': recall_score(y_true, y_pred),
-                'correct': sum([true == pred for true, pred in zip(y_true, y_pred)]),
-                'undetected': sum([true == 1 and pred == 0 for true, pred in zip(y_true, y_pred)]),
-                'misfired': sum([true == 0 and pred == 1 for true, pred in zip(y_true, y_pred)]),
-                'total': len(y_pred)}
+            metrics = self.calculate_metrics(y_true, y_pred)
             metrics_by_bioconcept[bioconcept] = metrics
         df = pandas.DataFrame(metrics_by_bioconcept)
         average_f1 = np.mean(df.T.f1) * 100
