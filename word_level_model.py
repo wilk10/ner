@@ -1,11 +1,12 @@
-import sys
 import spacy
 import pandas
 import numpy as np
 import statsmodels.api
-from sklearn.model_selection import train_test_split
+from imblearn.over_sampling import SMOTE
+from sklearn.utils import resample
 from sklearn.feature_selection import RFE
 from sklearn.linear_model import LogisticRegression
+from sklearn.model_selection import train_test_split
 from utils.data import Data
 from utils.eppo import Eppo
 from utils.cat_life import CatLife
@@ -215,17 +216,62 @@ class WordLevelModel:
         selected_df = y_full_df.loc[:, selected_columns].drop_duplicates()
         this_y = selected_df.columns[0]
         if this_y == 'YEAR':
-            custom_columns = [c for c in selected_df.columns if c != 'n_pests']
+            custom_columns = [c for c in selected_df.columns if c not in ['n_pests', 'n_categ']]
             selected_df = selected_df.loc[:, custom_columns]
         y_df = self.remove_correlated_features(selected_df)
         y = y_df[this_y]
         x_columns = [c for c in y_df.columns if c != this_y]
         X = y_df.loc[:, x_columns]
         X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.25, random_state=42)
-        print(f'{this_y}: X_train {X_train.shape} | X_test {X_test.shape}')
-        print(f'{sum(y_train) / len(y_train):.2f}% of 1s in train set')
-        print(f'{sum(y_test) / len(y_test):.2f}% of 1s in test set')
         return X_train, X_test, y_train, y_test
+
+    @staticmethod
+    def get_X_y_from_resampled_df(df, y_name):
+        print(df[y_name].value_counts())
+        y = df[y_name]
+        X = df.drop(y_name, axis=1)
+        return X, y
+
+    @classmethod
+    def up_or_down_sample(cls, X, y, flag=None):
+        assert flag in ['UP', 'DOWN', 'SMOTE', None]
+        df = pandas.concat([X, y], axis=1)
+        negative_df = df[df[y.name] == 0]
+        positive_df = df[df[y.name] == 1]
+        if flag == 'UP':
+            n_samples = max(len(negative_df) // 2, len(positive_df))
+            positive_df_upsampled = resample(positive_df, replace=True, n_samples=n_samples, random_state=42)
+            resampled_df = pandas.concat([negative_df, positive_df_upsampled])
+            output_X, output_y = cls.get_X_y_from_resampled_df(resampled_df, y.name)
+        elif flag in ['DOWN', 'SMOTE']:
+            factor = 2 if flag == 'DOWN' else 4
+            n_samples = min(len(positive_df) * factor, len(negative_df))
+            negative_df_downsampled = resample(negative_df, replace=False, n_samples=n_samples, random_state=42)
+            resampled_df = pandas.concat([negative_df_downsampled, positive_df])
+            output_X, output_y = cls.get_X_y_from_resampled_df(resampled_df, y.name)
+            if flag == 'SMOTE':
+                smote = SMOTE(random_state=42, sampling_strategy=0.5)
+                smote_X, smote_y = smote.fit_resample(output_X, output_y)
+                output_X = pandas.DataFrame(smote_X, columns=X.columns)
+                output_y = pandas.DataFrame(smote_y, columns=[y.name])
+                print(f'output_X.shape: {output_X.shape} | output_y.shape: {output_y.shape}')
+        else:
+            output_X = X
+            output_y = y
+        return output_X, output_y
+
+    @staticmethod
+    def fit_and_check_singular_matrix(logit_model, X, y):
+        try:
+            result = logit_model.fit(maxiter=200)
+        except np.linalg.linalg.LinAlgError:
+            df = X.copy()
+            df['YEAR'] = y
+            for col in X.columns:
+                print(df.groupby(['YEAR', col]).size())
+            import pdb
+            pdb.set_trace()
+        return result
 
     def train(self, df):
         metrics_by_y = dict.fromkeys(self.COLUMNS_BY_SOURCE['y'])
@@ -238,13 +284,14 @@ class WordLevelModel:
             kingdom = 'plant' if i <= 2 else 'animal'
             kingdom_df = df.loc[df.kingdom == kingdom]
             X_train, X_test, y_train, y_test = self.preprocess_dataset_and_split(kingdom_df, selected_columns)
+            X_train, y_train = self.up_or_down_sample(X_train, y_train, 'DOWN')
             logreg = LogisticRegression(solver='liblinear')
             rfe = RFE(logreg, 7)
             rfe = rfe.fit(X_train, y_train)
             remaining_features = X_train.columns[rfe.support_]
             filtered_X_train = X_train.loc[:, remaining_features]
             logit_model = statsmodels.api.Logit(y_train, filtered_X_train)
-            result = logit_model.fit(maxiter=200)
+            result = self.fit_and_check_singular_matrix(logit_model, filtered_X_train, y_train)
             print(result.summary2())
             print('-------------------------------------------------------------')
             logreg.fit(filtered_X_train, y_train)
