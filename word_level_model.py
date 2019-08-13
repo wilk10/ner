@@ -1,5 +1,6 @@
 import spacy
 import pandas
+import argparse
 import numpy as np
 import statsmodels.api
 from imblearn.over_sampling import SMOTE
@@ -30,9 +31,16 @@ class WordLevelModel:
     DF_FILE_NAME = 'entities_dataframe.csv'
     COLUMNS_TO_NOT_ANALYSE = ['kingdom', 'item_id', 'entity_id', 'eppo_code']
     COLUMNS_TO_EXCLUDE = ['sentiment', 'any_oov']
+    MANUALLY_EXCLUDED_FEATURES_BY_Y = {'YEAR': ['n_pests'], 'PAOR': ['n_categ', 'n_hosts'], 'PLPE': ['n_distrib']}
 
-    def __init__(self, do_extract_features=False):
-        self.do_extract_features = do_extract_features
+    def __init__(self, sampling='NONE', feature_selection='AUTO', do_extract_features='NO'):
+        self.sampling = sampling.upper()
+        assert self.sampling in ['UP', 'DOWN', 'SMOTE', 'NONE']
+        self.feature_selection = feature_selection.upper()
+        assert self.feature_selection in ['AUTO', 'MANUAL']
+        do_extract_features_input = do_extract_features.upper()
+        assert do_extract_features_input in ['YES', 'NO']
+        self.do_extract_features = True if do_extract_features_input == 'YES' else False
         self.data = Data()
         self.entities_by_bioconcept = self.data.learn_training_entries()
         self.nlp = spacy.load(self.MODEL)
@@ -215,8 +223,9 @@ class WordLevelModel:
         y_full_df = kingdom_df.loc[:, selected_columns]
         selected_df = y_full_df.loc[:, selected_columns].drop_duplicates()
         this_y = selected_df.columns[0]
-        if this_y == 'YEAR':
-            custom_columns = [c for c in selected_df.columns if c not in ['n_pests', 'n_categ']]
+        if this_y in self.MANUALLY_EXCLUDED_FEATURES_BY_Y.keys():
+            manually_excluded_features = self.MANUALLY_EXCLUDED_FEATURES_BY_Y[this_y]
+            custom_columns = [c for c in selected_df.columns if c not in manually_excluded_features]
             selected_df = selected_df.loc[:, custom_columns]
         y_df = self.remove_correlated_features(selected_df)
         y = y_df[this_y]
@@ -226,39 +235,48 @@ class WordLevelModel:
         return X_train, X_test, y_train, y_test
 
     @staticmethod
-    def get_X_y_from_resampled_df(df, y_name):
+    def get_x_y_from_resampled_df(df, y_name):
         print(df[y_name].value_counts())
         y = df[y_name]
         X = df.drop(y_name, axis=1)
         return X, y
 
-    @classmethod
-    def up_or_down_sample(cls, X, y, flag=None):
-        assert flag in ['UP', 'DOWN', 'SMOTE', None]
+    def up_or_down_sample(self, X, y):
         df = pandas.concat([X, y], axis=1)
         negative_df = df[df[y.name] == 0]
         positive_df = df[df[y.name] == 1]
-        if flag == 'UP':
+        if self.sampling == 'UP':
             n_samples = max(len(negative_df) // 2, len(positive_df))
             positive_df_upsampled = resample(positive_df, replace=True, n_samples=n_samples, random_state=42)
             resampled_df = pandas.concat([negative_df, positive_df_upsampled])
-            output_X, output_y = cls.get_X_y_from_resampled_df(resampled_df, y.name)
-        elif flag in ['DOWN', 'SMOTE']:
-            factor = 2 if flag == 'DOWN' else 4
+            output_X, output_y = self.get_x_y_from_resampled_df(resampled_df, y.name)
+        elif self.sampling in ['DOWN', 'SMOTE']:
+            factor = 2 if self.sampling == 'DOWN' else 4
             n_samples = min(len(positive_df) * factor, len(negative_df))
             negative_df_downsampled = resample(negative_df, replace=False, n_samples=n_samples, random_state=42)
             resampled_df = pandas.concat([negative_df_downsampled, positive_df])
-            output_X, output_y = cls.get_X_y_from_resampled_df(resampled_df, y.name)
-            if flag == 'SMOTE':
-                smote = SMOTE(random_state=42, sampling_strategy=0.5)
+            output_X, output_y = self.get_x_y_from_resampled_df(resampled_df, y.name)
+            if self.sampling == 'SMOTE':
+                smote = SMOTE(random_state=42, sampling_strategy=(2 / factor))
                 smote_X, smote_y = smote.fit_resample(output_X, output_y)
                 output_X = pandas.DataFrame(smote_X, columns=X.columns)
                 output_y = pandas.DataFrame(smote_y, columns=[y.name])
                 print(f'output_X.shape: {output_X.shape} | output_y.shape: {output_y.shape}')
         else:
+            assert self.sampling == 'NONE'
             output_X = X
             output_y = y
         return output_X, output_y
+
+    def auto_or_manual_feature_selection(self, estimator, X, y):
+        if self.feature_selection == 'AUTO':
+            rfe = RFE(estimator, 7)
+            rfe = rfe.fit(X, y)
+            remaining_features = X.columns[rfe.support_]
+            output_X = X.loc[:, remaining_features]
+        else:
+            output_X = X
+        return output_X
 
     @staticmethod
     def fit_and_check_singular_matrix(logit_model, X, y):
@@ -266,9 +284,9 @@ class WordLevelModel:
             result = logit_model.fit(maxiter=200)
         except np.linalg.linalg.LinAlgError:
             df = X.copy()
-            df['YEAR'] = y
+            df[y.name] = y
             for col in X.columns:
-                print(df.groupby(['YEAR', col]).size())
+                print(df.groupby([y.name, col]).size())
             import pdb
             pdb.set_trace()
         return result
@@ -284,12 +302,9 @@ class WordLevelModel:
             kingdom = 'plant' if i <= 2 else 'animal'
             kingdom_df = df.loc[df.kingdom == kingdom]
             X_train, X_test, y_train, y_test = self.preprocess_dataset_and_split(kingdom_df, selected_columns)
-            X_train, y_train = self.up_or_down_sample(X_train, y_train, 'DOWN')
+            X_train, y_train = self.up_or_down_sample(X_train, y_train)
             logreg = LogisticRegression(solver='liblinear')
-            rfe = RFE(logreg, 7)
-            rfe = rfe.fit(X_train, y_train)
-            remaining_features = X_train.columns[rfe.support_]
-            filtered_X_train = X_train.loc[:, remaining_features]
+            filtered_X_train = self.auto_or_manual_feature_selection(logreg, X_train, y_train)
             logit_model = statsmodels.api.Logit(y_train, filtered_X_train)
             result = self.fit_and_check_singular_matrix(logit_model, filtered_X_train, y_train)
             print(result.summary2())
@@ -330,5 +345,14 @@ class WordLevelModel:
         '''
 
 
+def parse_arguments():
+    parser = argparse.ArgumentParser()
+    parser.add_argument('sampling', type=str)
+    parser.add_argument('feature_selection', type=str)
+    parser.add_argument('do_extract_features', type=str, nargs='?', default='NO')
+    return parser.parse_args()
+
+
 if __name__ == '__main__':
-    WordLevelModel(do_extract_features=False).run()
+    arguments = parse_arguments()
+    WordLevelModel(**vars(arguments)).run()

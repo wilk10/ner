@@ -70,7 +70,7 @@ class Evaluation:
             'f1': f1_score(y_true, y_pred),
             'precision': precision_score(y_true, y_pred),
             'recall': recall_score(y_true, y_pred),
-            'correct': sum([true == pred for true, pred in zip(y_true, y_pred)]),
+            'correct': sum([true == 1 and pred == 1 for true, pred in zip(y_true, y_pred)]),
             'undetected': sum([true == 1 and pred == 0 for true, pred in zip(y_true, y_pred)]),
             'misfired': sum([true == 0 and pred == 1 for true, pred in zip(y_true, y_pred)]),
             'total': len(y_pred)}
