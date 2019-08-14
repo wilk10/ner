@@ -6,20 +6,21 @@ import numpy as np
 class SpacyDeepModel:
     MODELS_DIR = 'models'
 
-    def __init__(self, bioconcept, train_data, n_iter):
+    def __init__(self, bioconcept, train_data, n_iter, model_dir_name):
         self.bioconcept = bioconcept
         self.train_data = train_data
         self.n_iter = n_iter
+        self.model_dir_name = model_dir_name
         np.random.seed(42)
         self.nlp = spacy.blank('en')
         self.ner = self.get_ner()
         self.ner.add_label(self.bioconcept)
         self.optimizer = self.nlp.begin_training()
         self.move_names = list(self.ner.move_names)
-        self.output_dir = pathlib.Path.cwd() / self.MODELS_DIR / self.bioconcept.lower() / str(self.n_iter)
+        self.output_dir = pathlib.Path.cwd() / self.MODELS_DIR / self.bioconcept.lower() / self.model_dir_name
         assert not self.output_dir.exists()
         self.output_dir.mkdir()
-        self.model_name = '_'.join([self.bioconcept.lower(), str(self.n_iter)])
+        self.model_name = '_'.join([self.bioconcept.lower(), self.model_dir_name])
 
     def get_ner(self):
         if 'ner' not in self.nlp.pipe_names:
