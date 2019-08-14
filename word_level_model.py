@@ -166,6 +166,7 @@ class WordLevelModel:
                 df.to_csv(self.entities_df_path)
         return df
 
+    '''
     def explore_features(self):
         for column in self.df.columns:
             print(f'{self.df[column].value_counts()}\n')
@@ -179,6 +180,7 @@ class WordLevelModel:
             for column in selected_columns:
                 group_by = y_df.groupby([column, this_y]).size()
                 print(group_by)
+    '''
 
     def fix_data(self):
         corrected_df = self.df.copy()
@@ -196,6 +198,27 @@ class WordLevelModel:
         eppo_type_data = eppo_type_data.fillna(0)
         corrected_df['eppo_type'] = eppo_type_data
         return corrected_df
+
+    def investigate_shit_features(self, kingdom_df):
+        kingdom = list(set(kingdom_df['kingdom']))[0]
+        training_data = self.data.read_json(kingdom, 'training')
+        sampled_item_ids = np.random.choice(range(0, len(training_data['result'])), 10)
+        for item_id in sampled_item_ids:
+            item = training_data['result'][item_id]
+            if 'content' not in item['example'].keys():
+                continue
+            text = item['example']['content']
+            item_df = kingdom_df.loc[kingdom_df['item_id'] == item_id]
+            annotations = item['results']['annotations']
+            sorted_annotations = sorted(annotations, key=lambda a: a['start'])
+            annotated_entities = [text[a['start']:a['end']].lower().strip() for a in sorted_annotations]
+            tags = [a['tag'].upper().strip() for a in sorted_annotations]
+            print(text)
+            print(item_df)
+            print(annotated_entities)
+            print(tags)
+            import pdb
+            pdb.set_trace()
 
     @staticmethod
     def remove_correlated_features(df, threshold=0.7):
@@ -275,6 +298,7 @@ class WordLevelModel:
             remaining_features = X.columns[rfe.support_]
             output_X = X.loc[:, remaining_features]
         else:
+            assert self.feature_selection == 'MANUAL'
             output_X = X
         return output_X
 
@@ -301,6 +325,8 @@ class WordLevelModel:
                 if c not in other_ys and c not in self.COLUMNS_TO_EXCLUDE and c not in self.COLUMNS_TO_NOT_ANALYSE]
             kingdom = 'plant' if i <= 2 else 'animal'
             kingdom_df = df.loc[df.kingdom == kingdom]
+            if kingdom == 'animal':
+                self.investigate_shit_features(kingdom_df)
             X_train, X_test, y_train, y_test = self.preprocess_dataset_and_split(kingdom_df, selected_columns)
             X_train, y_train = self.up_or_down_sample(X_train, y_train)
             logreg = LogisticRegression(solver='liblinear')
