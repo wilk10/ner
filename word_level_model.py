@@ -79,12 +79,7 @@ class WordLevelModel:
 
     def get_ys(self, tag):
         if tag is not None:
-            bits = tag.split('_')[:2]
-            if len(bits) == 2:
-                y_name = ''.join([bit[:2] for bit in bits])
-            else:
-                assert len(bits) == 1
-                y_name = bits[0][:4]
+            y_name = Evaluation.shorten_bioconcept(tag)
             ys = [1 if y_col == y_name else 0 for y_col in self.COLUMNS_BY_SOURCE['y']]
         else:
             ys = np.zeros(len(self.COLUMNS_BY_SOURCE['y']))

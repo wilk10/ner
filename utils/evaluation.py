@@ -65,6 +65,16 @@ class Evaluation:
         return ys_by_bioconcepts
 
     @staticmethod
+    def shorten_bioconcept(bioconcept):
+        bits = bioconcept.split('_')[:2]
+        if len(bits) == 2:
+            y_name = ''.join([bit[:2] for bit in bits])
+        else:
+            assert len(bits) == 1
+            y_name = bits[0][:4]
+        return y_name
+
+    @staticmethod
     def calculate_metrics(y_true, y_pred):
         metrics = {
             'f1': f1_score(y_true, y_pred),
@@ -78,12 +88,13 @@ class Evaluation:
 
     def run(self):
         ys_by_bioconcept = self.calculate_ys_by_bioconcept()
-        metrics_by_bioconcept = dict.fromkeys(self.bioconcepts)
+        metrics_by_bioconcept = {}
         for bioconcept in self.bioconcepts:
             y_true = ys_by_bioconcept[bioconcept]['true']
             y_pred = ys_by_bioconcept[bioconcept]['pred']
             metrics = self.calculate_metrics(y_true, y_pred)
-            metrics_by_bioconcept[bioconcept] = metrics
+            short_bioconcept = self.shorten_bioconcept(bioconcept)
+            metrics_by_bioconcept[short_bioconcept] = metrics
         df = pandas.DataFrame(metrics_by_bioconcept)
         average_f1 = np.mean(df.T.f1) * 100
         print(df.T)
