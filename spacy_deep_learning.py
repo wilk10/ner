@@ -1,4 +1,5 @@
 import spacy
+import pandas
 from spacy_with_apis import SpacyWithAPIs
 from utils.data import Data
 from utils.evaluation import Evaluation
@@ -72,15 +73,25 @@ class SpacyDeepLearning:
                     #print("--- %s seconds ---" % (time.time() - start_time))
         return model_dir_by_bioconcept
 
-    def display_predictions(self, item, prediction):
+    @staticmethod
+    def make_display_df(text, annotations, bioconcept=None):
+        entities = [text[a['start']:a['end']] for a in annotations]
+        df = pandas.DataFrame(annotations)
+        df['entity'] = entities
+        df['tag'] = [t.upper().strip() for t in df['tag']]
+        if bioconcept is not None:
+            df = df.loc[df['tag'] == bioconcept]
+        return df
+
+    def display_predictions(self, item, prediction, bioconcept):
         text = item['example']['content']
         annotations = item['results']['annotations']
         sorted_annotations = sorted(annotations, key=lambda a: a['start'])
-        true_output_text = self.make_output_text(text, sorted_annotations)
-        print(f'ANNOTATED VALIDATION\n{true_output_text}')
-        assert prediction['text'].lower() == text.lower()
-        pred_output_text = self.make_output_text(text, prediction['pred'])
-        print(f'\nPREDICTION\n{pred_output_text}')
+        true_df = self.make_display_df(text, sorted_annotations, bioconcept)
+        pred_df = self.make_display_df(text, prediction['pred'], bioconcept)
+        print(text)
+        print(f'\nANNOTATED\n{true_df}')
+        print(f'\nPREDICTED\n{pred_df}')
         input()
 
     def predict_validation_data(self, model_dir_by_bioconcept):
@@ -104,26 +115,15 @@ class SpacyDeepLearning:
                         bioconcept_annotations.extend(entity_annotations)
                     predicted_annotations.extend(bioconcept_annotations)
                 if predicted_annotations:
-                    predicted_annotations = SpacyWithAPIs.remove_overlapping_annotations(predicted_annotations)
+                    predicted_annotations = SpacyWithAPIs.clean_annotations(predicted_annotations, item_text, buffer=0)
                 result = {
                     'text': item_text,
                     'true': item['results']['annotations'],
                     'pred': predicted_annotations}
                 results.append(result)
                 print(f'item {i} of {kingdom}s predicted')
-                #self.display_predictions(item, result)
+                #self.display_predictions(item, result, bioconcept)
         return results
-
-    @staticmethod
-    def make_output_text(text, annotations):
-        output_text = list(text.lower())
-        for annotation in annotations:
-            start = annotation['start']
-            end = annotation['end']
-            named_entity = f'{text[start:end]}'.upper()
-            output_text[annotation['start']:annotation['end']] = list(named_entity)
-            output_text.extend(list(f'\n{named_entity} ({start}:{end}) ({annotation["tag"]})'))
-        return ''.join(output_text)
 
     def run(self):
         model_dir_by_bioconcept = self.train_models_or_get_dirs()

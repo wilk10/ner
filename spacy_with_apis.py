@@ -113,16 +113,20 @@ class SpacyWithAPIs:
         return annotations, jsons_to_save
 
     @staticmethod
-    def remove_overlapping_annotations(annotations):
+    def clean_annotations(annotations, text, buffer=0):
         sorted_annotations = sorted(annotations, key=lambda a: a['start'])
         cleaned_annotations = [sorted_annotations[0]]
         for i, annotation in enumerate(sorted_annotations[1:]):
-            previous_annotation = cleaned_annotations[-1]
-            if annotation['start'] >= previous_annotation['end']:
+            prev_annotation = cleaned_annotations[-1]
+            if annotation['start'] > prev_annotation['end'] + buffer:
+                cleaned_annotations.append(annotation)
+            elif annotation['start'] - prev_annotation['end'] > 0 and annotation['tag'] == prev_annotation['tag']:
+                if ',' not in text[prev_annotation['end']:annotation['start']]:
+                    annotation = {'tag': annotation['tag'], 'start': prev_annotation['start'], 'end': annotation['end']}
                 cleaned_annotations.append(annotation)
             else:
                 annotation_length = annotation['end'] - annotation['start']
-                previous_length = previous_annotation['end'] - previous_annotation['start']
+                previous_length = prev_annotation['end'] - prev_annotation['start']
                 if annotation_length > previous_length:
                     cleaned_annotations[-1] = annotation
         return cleaned_annotations
@@ -167,7 +171,7 @@ class SpacyWithAPIs:
                     jsons_to_save = False
                 annotations = output_item['results']['annotations']
                 if annotations:
-                    cleaned_annotations = self.remove_overlapping_annotations(annotations)
+                    cleaned_annotations = self.clean_annotations(annotations, text)
                     output_item['results']['annotations'] = cleaned_annotations
                 result = {
                     'text': text,
