@@ -7,7 +7,8 @@ from utils.data import Data
 class KaggleData:
     FILE_NAME = 'ner_dataset.csv'
 
-    def __init__(self):
+    def __init__(self, input_n_sentences=None):
+        self.input_n_sentences = input_n_sentences
         self.data = Data()
         self.file_path = self.data.cwd / self.FILE_NAME
         self.df = self.load_df()
@@ -57,8 +58,11 @@ class KaggleData:
     def prepare_spacy_annotations(self):
         grouped = self.df.groupby("Sentence #").apply(self.group_function)
         sentences = [sentence for sentence in grouped]
-        annotations = []
         new_sentences = self.merge_i_geo_tags(sentences)
+        target_with_location = len(sentences) if self.input_n_sentences is None else self.input_n_sentences // 3 * 2
+        target_no_location = len(sentences) if self.input_n_sentences is None else self.input_n_sentences // 3
+        with_location = []
+        no_location = []
         for sentence in new_sentences:
             text = " ".join([word for word, pos, tag in sentence])
             locations = [word for word, pos, tag in sentence if tag == 'B-geo' and pos == 'NNP']
@@ -70,7 +74,14 @@ class KaggleData:
             unique_entities = list(set(entities))
             sorted_entities = sorted(unique_entities, key=lambda e: e[0])
             annotation = (text, {'entities': sorted_entities})
-            annotations.append(annotation)
+            if sorted_entities and len(with_location) < target_with_location:
+                with_location.append(annotation)
+            elif not sorted_entities and len(no_location) < target_no_location:
+                no_location.append(annotation)
+            elif len(with_location) >= target_with_location and len(no_location) >= target_no_location:
+                break
+        annotations = with_location + no_location
+        np.random.shuffle(annotations)
         return annotations
 
 

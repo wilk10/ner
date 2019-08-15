@@ -2,13 +2,15 @@ import spacy
 from spacy_with_apis import SpacyWithAPIs
 from utils.data import Data
 from utils.evaluation import Evaluation
+from utils.kaggle_data import KaggleData
 from utils.spacy_deep_model import SpacyDeepModel
 
 
 class SpacyDeepLearning:
     N_ITER_FILE_NAME = 'n_iters_by_bioconcept.json'
 
-    def __init__(self):
+    def __init__(self, n_kaggle_items=0):
+        self.n_kaggle_items = n_kaggle_items
         self.data = Data()
         self.models_dir = self.data.cwd / SpacyDeepModel.MODELS_DIR
         n_iters_by_bioconcept_path = self.data.dict_dir / self.N_ITER_FILE_NAME
@@ -51,15 +53,35 @@ class SpacyDeepLearning:
             training_data = self.data.read_json(kingdom, 'training')
             for bioconcept in Data.BIOCONCEPTS_BY_KINGDOM[kingdom]:
                 n_iter = self.n_iters_by_bioconcept[bioconcept]
-                model_dir_name = f'{str(n_iter)}_clean'
+                if bioconcept == 'LOCATION':
+                    model_dir_name = f'{str(n_iter)}_clean_{self.n_kaggle_items}'
+                else:
+                    model_dir_name = f'{str(n_iter)}_clean'
                 model_dir = self.models_dir / bioconcept.lower() / model_dir_name
                 model_dir_by_bioconcept[bioconcept] = model_dir
                 if not model_dir.exists():
                     bioconcept_training_data = self.format_annotations(training_data, bioconcept)
+                    if bioconcept == 'LOCATION':
+                        kaggle_location_data = KaggleData(self.n_kaggle_items).prepare_spacy_annotations()
+                        bioconcept_training_data.extend(kaggle_location_data)
                     print(f'\n{bioconcept}: data ready, starting with deep learning training')
+                    #import time
+                    #start_time = time.time()
                     bioconcept_model = SpacyDeepModel(bioconcept, bioconcept_training_data, n_iter, model_dir_name)
                     bioconcept_model.train()
+                    #print("--- %s seconds ---" % (time.time() - start_time))
         return model_dir_by_bioconcept
+
+    def display_predictions(self, item, prediction):
+        text = item['example']['content']
+        annotations = item['results']['annotations']
+        sorted_annotations = sorted(annotations, key=lambda a: a['start'])
+        true_output_text = self.make_output_text(text, sorted_annotations)
+        print(f'ANNOTATED VALIDATION\n{true_output_text}')
+        assert prediction['text'].lower() == text.lower()
+        pred_output_text = self.make_output_text(text, prediction['pred'])
+        print(f'\nPREDICTION\n{pred_output_text}')
+        input()
 
     def predict_validation_data(self, model_dir_by_bioconcept):
         results = []
@@ -89,7 +111,19 @@ class SpacyDeepLearning:
                     'pred': predicted_annotations}
                 results.append(result)
                 print(f'item {i} of {kingdom}s predicted')
+                #self.display_predictions(item, result)
         return results
+
+    @staticmethod
+    def make_output_text(text, annotations):
+        output_text = list(text.lower())
+        for annotation in annotations:
+            start = annotation['start']
+            end = annotation['end']
+            named_entity = f'{text[start:end]}'.upper()
+            output_text[annotation['start']:annotation['end']] = list(named_entity)
+            output_text.extend(list(f'\n{named_entity} ({start}:{end}) ({annotation["tag"]})'))
+        return ''.join(output_text)
 
     def run(self):
         model_dir_by_bioconcept = self.train_models_or_get_dirs()
@@ -99,4 +133,4 @@ class SpacyDeepLearning:
 
 
 if __name__ == '__main__':
-    SpacyDeepLearning().run()
+    SpacyDeepLearning(n_kaggle_items=4000).run()
