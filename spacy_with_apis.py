@@ -78,7 +78,8 @@ class SpacyWithAPIs:
         return annotations
     '''
 
-    def add_partial_initials(self, input_noun, text, bioconcept, annotations):
+    @classmethod
+    def add_partial_initials(cls, input_noun, text, bioconcept, annotations):
         noun_chunks = input_noun.split(' ')
         more_entities = []
         if len(noun_chunks) > 1:
@@ -89,7 +90,7 @@ class SpacyWithAPIs:
                     partially_initialised_noun = ' '.join(new_chunks)
                     more_entities.append(partially_initialised_noun)
         for entity in more_entities:
-            new_annotations = self.find_matches_and_make_annotations(entity, text, bioconcept)
+            new_annotations = cls.find_matches_and_make_annotations(entity, text, bioconcept)
             annotations.extend(new_annotations)
         return annotations
 

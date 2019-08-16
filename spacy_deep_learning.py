@@ -9,6 +9,8 @@ from utils.spacy_deep_model import SpacyDeepModel
 
 class SpacyDeepLearning:
     N_ITER_FILE_NAME = 'n_iters_by_bioconcept.json'
+    BIOCONCEPTS_FOR_PARTIAL_INITIALISATION = [
+        'PLANT_PEST', 'PLANT_SPECIES', 'PLANT_DISEASE_COMMNAME', 'PATHOGENIC_ORGANISMS', 'TARGET_SPECIES', 'ANMETHOD']
 
     def __init__(self, n_kaggle_items=0):
         self.n_kaggle_items = n_kaggle_items
@@ -102,24 +104,27 @@ class SpacyDeepLearning:
                 if 'content' not in item['example'].keys():
                     continue
                 item_text = item['example']['content']
-                predicted_annotations = []
+                predictions = []
                 for bioconcept in Data.BIOCONCEPTS_BY_KINGDOM[kingdom]:
                     _, input_annotations = self.format_single_annotation(item, bioconcept)
                     model_dir = model_dir_by_bioconcept[bioconcept]
                     bioconcept_nlp = spacy.load(model_dir)
                     doc = bioconcept_nlp(item_text)
-                    bioconcept_annotations = []
+                    bioconcept_predictions = []
                     for entity in doc.ents:
-                        entity_annotations = SpacyWithAPIs.find_matches_and_make_annotations(
+                        entity_predictions = SpacyWithAPIs.find_matches_and_make_annotations(
                             entity.text, item_text, bioconcept)
-                        bioconcept_annotations.extend(entity_annotations)
-                    predicted_annotations.extend(bioconcept_annotations)
-                if predicted_annotations:
-                    predicted_annotations = SpacyWithAPIs.clean_annotations(predicted_annotations, item_text, buffer=0)
+                        bioconcept_predictions.extend(entity_predictions)
+                        if bioconcept in self.BIOCONCEPTS_FOR_PARTIAL_INITIALISATION:
+                            bioconcept_predictions = SpacyWithAPIs.add_partial_initials(
+                                entity.text, item_text, bioconcept, bioconcept_predictions)
+                    predictions.extend(bioconcept_predictions)
+                if predictions:
+                    predictions = SpacyWithAPIs.clean_annotations(predictions, item_text, buffer=0)
                 result = {
                     'text': item_text,
                     'true': item['results']['annotations'],
-                    'pred': predicted_annotations}
+                    'pred': predictions}
                 results.append(result)
                 print(f'item {i} of {kingdom}s predicted')
                 #self.display_predictions(item, result, bioconcept)
