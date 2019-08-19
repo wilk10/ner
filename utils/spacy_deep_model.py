@@ -5,33 +5,33 @@ import numpy as np
 
 class SpacyDeepModel:
     MODELS_DIR = 'models'
+    PIPES = ['ner', 'sentencizer']
 
-    def __init__(self, bioconcept, train_data, n_iter, model_dir_name):
+    def __init__(self, bioconcept, train_data, n_iter, model_dir_name, split_into_sentences):
         self.bioconcept = bioconcept
         self.train_data = train_data
         self.n_iter = n_iter
         self.model_dir_name = model_dir_name
+        self.split_into_sentences = split_into_sentences
         np.random.seed(42)
         self.nlp = spacy.blank('en')
-        self.ner = self.get_ner()
-        self.ner.add_label(self.bioconcept)
+        self.add_pipes_and_label()
         self.optimizer = self.nlp.begin_training()
-        self.move_names = list(self.ner.move_names)
         self.output_dir = pathlib.Path.cwd() / self.MODELS_DIR / self.bioconcept.lower() / self.model_dir_name
         assert not self.output_dir.exists()
         self.output_dir.mkdir()
         self.model_name = '_'.join([self.bioconcept.lower(), self.model_dir_name])
 
-    def get_ner(self):
-        if 'ner' not in self.nlp.pipe_names:
-            ner = self.nlp.create_pipe('ner')
-            self.nlp.add_pipe(ner)
-        else:
-            ner = self.nlp.get_pipe('ner')
-        return ner
+    def add_pipes_and_label(self):
+        ner = self.nlp.create_pipe('ner')
+        ner.add_label(self.bioconcept)
+        self.nlp.add_pipe(ner)
+        if self.split_into_sentences:
+            sentencizer = self.nlp.create_pipe('sentencizer')
+            self.nlp.add_pipe(sentencizer)
 
     def train(self):
-        other_pipes = [pipe for pipe in self.nlp.pipe_names if pipe != 'ner']
+        other_pipes = [pipe for pipe in self.nlp.pipe_names if pipe not in self.PIPES]
         with self.nlp.disable_pipes(*other_pipes):
             sizes = spacy.util.compounding(1.0, 4.0, 1.001)
             for itn in range(self.n_iter):
@@ -44,4 +44,4 @@ class SpacyDeepModel:
                 print(f'{itn+1}/{self.n_iter}: Losses', losses)
         self.nlp.meta['name'] = self.model_name
         self.nlp.to_disk(self.output_dir)
-        print('Saved model to', self.output_dir)
+        print(f'Saved model to {self.output_dir}')

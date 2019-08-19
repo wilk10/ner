@@ -7,7 +7,7 @@ from utils.data import Data
 class KaggleData:
     FILE_NAME = 'ner_dataset.csv'
 
-    def __init__(self, input_n_sentences=None):
+    def __init__(self, input_n_sentences):
         self.input_n_sentences = input_n_sentences
         self.data = Data()
         self.file_path = self.data.cwd / self.FILE_NAME
@@ -59,8 +59,8 @@ class KaggleData:
         grouped = self.df.groupby("Sentence #").apply(self.group_function)
         sentences = [sentence for sentence in grouped]
         new_sentences = self.merge_i_geo_tags(sentences)
-        target_with_location = len(sentences) if self.input_n_sentences is None else self.input_n_sentences // 3 * 2
-        target_no_location = len(sentences) if self.input_n_sentences is None else self.input_n_sentences // 3
+        target_with_location = self.input_n_sentences // 3 * 2
+        target_no_location = self.input_n_sentences // 3
         with_location = []
         no_location = []
         for sentence in new_sentences:
@@ -86,4 +86,4 @@ class KaggleData:
 
 
 if __name__ == '__main__':
-    KaggleData().prepare_spacy_annotations()
+    KaggleData(1200).prepare_spacy_annotations()

@@ -1,3 +1,4 @@
+import time
 import spacy
 import pandas
 from spacy_with_apis import SpacyWithAPIs
@@ -11,10 +12,14 @@ class SpacyDeepLearning:
     N_ITER_FILE_NAME = 'n_iters_by_bioconcept.json'
     BIOCONCEPTS_FOR_PARTIAL_INITIALISATION = [
         'PLANT_PEST', 'PLANT_SPECIES', 'PLANT_DISEASE_COMMNAME', 'PATHOGENIC_ORGANISMS', 'TARGET_SPECIES', 'ANMETHOD']
+    BIOCONCEPTS_FOR_SENTENCING = [
+        'PLANT_PEST', 'PLANT_SPECIES', 'PLANT_DISEASE_COMMNAME', 'PATHOGENIC_ORGANISMS', 'TARGET_SPECIES', 'LOCATION',
+        'PREVALENCE', 'YEAR', 'ANMETHOD']
 
     def __init__(self, n_kaggle_items=0):
         self.n_kaggle_items = n_kaggle_items
         self.data = Data()
+        self.vanilla_nlp = spacy.load('en_core_web_sm')
         self.models_dir = self.data.cwd / SpacyDeepModel.MODELS_DIR
         n_iters_by_bioconcept_path = self.data.dict_dir / self.N_ITER_FILE_NAME
         self.n_iters_by_bioconcept = self.data.load_json(n_iters_by_bioconcept_path)
@@ -31,23 +36,44 @@ class SpacyDeepLearning:
                 cleaned_annotations.append(cleaned_annotation)
         return cleaned_annotations
 
-    def format_single_annotation(self, item, bioconcept):
-        text = item['example']['content']
-        annotations = item['results']['annotations']
-        sorted_annotations = sorted(annotations, key=lambda a: a['start'])
-        bioconcept_annotations = [a for a in sorted_annotations if a['tag'].upper() == bioconcept]
-        clean_annotations = self.clean_annotations(text, bioconcept_annotations)
+    def format_single_item_annotations(self, text, annotations):
+        clean_annotations = self.clean_annotations(text, annotations)
         entities = [(a['start'], a['end'], a['tag']) for a in clean_annotations]
-        new_text_annotations = (text, {'entities': entities})
-        return new_text_annotations
+        formatted_annotations = (text, {'entities': entities})
+        return formatted_annotations
 
-    def format_annotations(self, data, bioconcept):
+    def split_text_and_annotations_by_sentence(self, text, annotations):
+        doc = self.vanilla_nlp(text)
+        sentences = [s for s in doc.sents]
+        item_annotations = []
+        start_end_chars = [(s.start_char, s.end_char) for s in doc.sents]
+        for i, (start_char, end_char) in enumerate(start_end_chars):
+            assert text[start_char:end_char] == sentences[i].text
+            relevant_annotations = [a for a in annotations if a['start'] >= start_char and a['end'] <= end_char]
+            sentence_annotations = []
+            for annotation in relevant_annotations:
+                new_start = annotation['start'] - start_char
+                new_end = annotation['end'] - start_char
+                sentence_annotation = {'tag': annotation['tag'], 'start': new_start, 'end': new_end}
+                sentence_annotations.append(sentence_annotation)
+            formatted_annotations = self.format_single_item_annotations(sentences[i].text, sentence_annotations)
+            item_annotations.append(formatted_annotations)
+        return item_annotations
+
+    def format_annotations(self, data, bioconcept, split_into_sentences):
         bioconcept_data = []
         for item in data['result']:
             if 'content' not in item['example'].keys():
                 continue
-            new_text_annotations = self.format_single_annotation(item, bioconcept)
-            bioconcept_data.append(new_text_annotations)
+            text = item['example']['content']
+            annotations = item['results']['annotations']
+            sorted_annotations = sorted(annotations, key=lambda a: a['start'])
+            bioconcept_annotations = [a for a in sorted_annotations if a['tag'].upper().strip() == bioconcept]
+            if split_into_sentences:
+                new_text_annotations = self.split_text_and_annotations_by_sentence(text, bioconcept_annotations)
+            else:
+                new_text_annotations = self.format_single_item_annotations(text, bioconcept_annotations)
+            bioconcept_data.extend(new_text_annotations)
         return bioconcept_data
 
     def train_models_or_get_dirs(self):
@@ -57,22 +83,24 @@ class SpacyDeepLearning:
             for bioconcept in Data.BIOCONCEPTS_BY_KINGDOM[kingdom]:
                 n_iter = self.n_iters_by_bioconcept[bioconcept]
                 if bioconcept == 'LOCATION':
-                    model_dir_name = f'{str(n_iter)}_clean_{self.n_kaggle_items}'
+                    model_dir_name = f'{str(n_iter)}_clean_{self.n_kaggle_items}_sentences'
+                elif bioconcept in self.BIOCONCEPTS_FOR_SENTENCING:
+                    model_dir_name = f'{str(n_iter)}_clean_sentences'
                 else:
                     model_dir_name = f'{str(n_iter)}_clean'
+                split_into_sentences = True if bioconcept in self.BIOCONCEPTS_FOR_SENTENCING else False
                 model_dir = self.models_dir / bioconcept.lower() / model_dir_name
                 model_dir_by_bioconcept[bioconcept] = model_dir
                 if not model_dir.exists():
-                    bioconcept_training_data = self.format_annotations(training_data, bioconcept)
+                    data = self.format_annotations(training_data, bioconcept, split_into_sentences)
                     if bioconcept == 'LOCATION':
                         kaggle_location_data = KaggleData(self.n_kaggle_items).prepare_spacy_annotations()
-                        bioconcept_training_data.extend(kaggle_location_data)
+                        data.extend(kaggle_location_data)
                     print(f'\n{bioconcept}: data ready, starting with deep learning training')
-                    #import time
-                    #start_time = time.time()
-                    bioconcept_model = SpacyDeepModel(bioconcept, bioconcept_training_data, n_iter, model_dir_name)
+                    start_time = time.time()
+                    bioconcept_model = SpacyDeepModel(bioconcept, data, n_iter, model_dir_name, split_into_sentences)
                     bioconcept_model.train()
-                    #print("--- %s seconds ---" % (time.time() - start_time))
+                    print(f'--- {time.time() - start_time} seconds ---')
         return model_dir_by_bioconcept
 
     @staticmethod
@@ -106,7 +134,7 @@ class SpacyDeepLearning:
                 item_text = item['example']['content']
                 predictions = []
                 for bioconcept in Data.BIOCONCEPTS_BY_KINGDOM[kingdom]:
-                    _, input_annotations = self.format_single_annotation(item, bioconcept)
+                    #_, input_annotations = self.format_single_annotation(item, bioconcept)
                     model_dir = model_dir_by_bioconcept[bioconcept]
                     bioconcept_nlp = spacy.load(model_dir)
                     doc = bioconcept_nlp(item_text)
@@ -138,4 +166,4 @@ class SpacyDeepLearning:
 
 
 if __name__ == '__main__':
-    SpacyDeepLearning(n_kaggle_items=4000).run()
+    SpacyDeepLearning(n_kaggle_items=1800).run()
