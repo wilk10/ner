@@ -7,11 +7,12 @@ from utils.data import Data
 class KaggleData:
     FILE_NAME = 'ner_dataset.csv'
 
-    def __init__(self, input_n_sentences):
-        self.input_n_sentences = input_n_sentences
+    def __init__(self):
         self.data = Data()
         self.file_path = self.data.cwd / self.FILE_NAME
         self.df = self.load_df()
+        grouped = self.df.groupby("Sentence #").apply(self.group_function)
+        self.sentences = [sentence for sentence in grouped]
 
     def load_df(self):
         df = pandas.read_csv(self.file_path, encoding="latin1")
@@ -55,35 +56,44 @@ class KaggleData:
             new_sentences.append(new_sentence)
         return new_sentences
 
-    def prepare_spacy_annotations(self):
-        grouped = self.df.groupby("Sentence #").apply(self.group_function)
-        sentences = [sentence for sentence in grouped]
-        new_sentences = self.merge_i_geo_tags(sentences)
-        target_with_location = self.input_n_sentences // 3 * 2
-        target_no_location = self.input_n_sentences // 3
-        with_location = []
-        no_location = []
-        for sentence in new_sentences:
+    @staticmethod
+    def detect_bioconcepts(bioconcept, sentence):
+        if bioconcept == 'LOCATION':
+            detections = [word for word, pos, tag in sentence if tag == 'B-geo' and pos == 'NNP']
+        else:
+            possible_years = [word for word, pos, tag in sentence if pos == 'CD' and tag in ['B-tim', 'I-tim']]
+            detections = [year for year in possible_years if len(year) == 4 and year[:2] in ['20', '19']]
+        return detections
+
+    def prepare_annotations(self, bioconcept, n_positive, n_negative):
+        assert bioconcept in ['LOCATION', 'YEAR']
+        with_bioconcept = []
+        no_bioconcept = []
+        if bioconcept == 'LOCATION':
+            sentences = self.merge_i_geo_tags(self.sentences)
+        else:
+            sentences = self.sentences
+        for sentence in sentences:
             text = " ".join([word for word, pos, tag in sentence])
-            locations = [word for word, pos, tag in sentence if tag == 'B-geo' and pos == 'NNP']
+            detections = self.detect_bioconcepts(bioconcept, sentence)
             entities = []
-            for location in locations:
-                matches = [match for match in re.finditer(location, text)]
-                annotated_matches = [(match.start(), match.end(), 'LOCATION') for match in matches]
+            for detection in detections:
+                matches = [match for match in re.finditer(detection, text)]
+                annotated_matches = [(match.start(), match.end(), bioconcept) for match in matches]
                 entities.extend(annotated_matches)
             unique_entities = list(set(entities))
             sorted_entities = sorted(unique_entities, key=lambda e: e[0])
             annotation = (text, {'entities': sorted_entities})
-            if sorted_entities and len(with_location) < target_with_location:
-                with_location.append(annotation)
-            elif not sorted_entities and len(no_location) < target_no_location:
-                no_location.append(annotation)
-            elif len(with_location) >= target_with_location and len(no_location) >= target_no_location:
+            if sorted_entities and len(with_bioconcept) < n_positive:
+                with_bioconcept.append(annotation)
+            elif not sorted_entities and len(no_bioconcept) < n_negative:
+                no_bioconcept.append(annotation)
+            elif len(with_bioconcept) >= n_positive and len(no_bioconcept) >= n_negative:
                 break
-        annotations = with_location + no_location
+        annotations = with_bioconcept + no_bioconcept
         np.random.shuffle(annotations)
         return annotations
 
 
 if __name__ == '__main__':
-    KaggleData(1200).prepare_spacy_annotations()
+    KaggleData().prepare_annotations('LOCATION', 500, 500)
