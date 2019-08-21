@@ -185,5 +185,5 @@ class SpacyDeepLearning:
 
 
 if __name__ == '__main__':
-    n_items_by_bioconcept = {'LOCATION': 15000, 'YEAR': 3000}
+    n_items_by_bioconcept = {'LOCATION': 20000, 'YEAR': 7000}
     SpacyDeepLearning(n_items_by_bioconcept).run()

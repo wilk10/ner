@@ -13,6 +13,7 @@ class KaggleData:
         self.df = self.load_df()
         grouped = self.df.groupby("Sentence #").apply(self.group_function)
         self.sentences = [sentence for sentence in grouped]
+        np.random.shuffle(self.sentences)
 
     def load_df(self):
         df = pandas.read_csv(self.file_path, encoding="latin1")
@@ -26,7 +27,6 @@ class KaggleData:
 
     @staticmethod
     def merge_i_geo_tags(sentences):
-        np.random.shuffle(sentences)
         new_sentences = []
         for sentence in sentences:
             new_sentence = []
