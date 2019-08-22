@@ -143,6 +143,26 @@ class SpacyDeepLearning:
         print(f'\nPREDICTED\n{pred_df}')
         input()
 
+    @classmethod
+    def make_predictions(cls, kingdom, model_dir_by_bioconcept, item_text):
+        predictions = []
+        for bioconcept in Data.BIOCONCEPTS_BY_KINGDOM[kingdom]:
+            model_dir = model_dir_by_bioconcept[bioconcept]
+            bioconcept_nlp = spacy.load(model_dir)
+            doc = bioconcept_nlp(item_text)
+            bioconcept_predictions = []
+            for entity in doc.ents:
+                entity_predictions = SpacyWithAPIs.find_matches_and_make_annotations(
+                    entity.text, item_text, bioconcept)
+                bioconcept_predictions.extend(entity_predictions)
+                if bioconcept in cls.BIOCONCEPTS_FOR_PARTIAL_INITIALISATION:
+                    bioconcept_predictions = SpacyWithAPIs.add_partial_initials(
+                        entity.text, item_text, bioconcept, bioconcept_predictions)
+            predictions.extend(bioconcept_predictions)
+        if predictions:
+            predictions = SpacyWithAPIs.clean_annotations(predictions, item_text, buffer=0)
+        return predictions
+
     def predict_validation_data(self, model_dir_by_bioconcept):
         results = []
         for kingdom in ['animal', 'plant']:
@@ -151,23 +171,7 @@ class SpacyDeepLearning:
                 if 'content' not in item['example'].keys():
                     continue
                 item_text = item['example']['content']
-                predictions = []
-                for bioconcept in Data.BIOCONCEPTS_BY_KINGDOM[kingdom]:
-                    #_, input_annotations = self.format_single_annotation(item, bioconcept)
-                    model_dir = model_dir_by_bioconcept[bioconcept]
-                    bioconcept_nlp = spacy.load(model_dir)
-                    doc = bioconcept_nlp(item_text)
-                    bioconcept_predictions = []
-                    for entity in doc.ents:
-                        entity_predictions = SpacyWithAPIs.find_matches_and_make_annotations(
-                            entity.text, item_text, bioconcept)
-                        bioconcept_predictions.extend(entity_predictions)
-                        if bioconcept in self.BIOCONCEPTS_FOR_PARTIAL_INITIALISATION:
-                            bioconcept_predictions = SpacyWithAPIs.add_partial_initials(
-                                entity.text, item_text, bioconcept, bioconcept_predictions)
-                    predictions.extend(bioconcept_predictions)
-                if predictions:
-                    predictions = SpacyWithAPIs.clean_annotations(predictions, item_text, buffer=0)
+                predictions = self.make_predictions(kingdom, model_dir_by_bioconcept, item_text)
                 result = {
                     'text': item_text,
                     'true': item['results']['annotations'],

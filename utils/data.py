@@ -1,5 +1,6 @@
 import os
 import json
+import pandas
 import pathlib
 
 
@@ -47,9 +48,15 @@ class Data:
         assert phase in ['training', 'validation']
         target_dir = self.get_target_dir(kingdom)
         file_path = self.get_file_path(target_dir, f'{phase}set_text')
-        with open(str(file_path), 'r') as f:
+        with open(str(file_path), 'r', encoding='latin-1') as f:
             entries = [entry.rstrip() for entry in f]
         return entries
+
+    def read_test_txt_into_df(self, kingdom):
+        target_dir = self.get_target_dir(kingdom)
+        file_path = self.get_file_path(target_dir, f'testset_text')
+        df = pandas.read_table(file_path, encoding='latin-1')
+        return df
 
     def read_json(self, kingdom, phase):
         assert phase in ['training', 'validation']
