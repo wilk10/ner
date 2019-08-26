@@ -11,7 +11,7 @@ class CatLife:
     def get_response(self, entity):
         params = {'name': entity, 'format': 'json'}
         parsed_params = urllib.parse.urlencode(params)
-        return requests.get(self.URL, params=parsed_params).json()
+        return requests.get(self.URL, params=parsed_params, timeout=10).json()
 
 
 if __name__ == '__main__':

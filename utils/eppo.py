@@ -37,12 +37,12 @@ class Eppo:
 
     def make_call(self, url, params, is_search=False):
         parsed_params = urllib.parse.urlencode(params)
-        response = requests.get(url, params=parsed_params).json()
+        response = requests.get(url, params=parsed_params, timeout=10).json()
         time.sleep(self.time_to_sleep)
         return self.check_response(response, is_search)
 
-    def get_search_result(self, entity):
-        params = {'authtoken': self.token, 'kw': entity, 'searchfor': 3, 'searchmode': 1, 'typeorg': 0}
+    def get_search_result(self, entity, typeorg=0):
+        params = {'authtoken': self.token, 'kw': entity, 'searchfor': 3, 'searchmode': 1, 'typeorg': typeorg}
         url = self.URL + f'/tools/search'
         return self.make_call(url, params, is_search=True)
 
